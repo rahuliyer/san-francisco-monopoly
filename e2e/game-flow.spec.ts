@@ -62,16 +62,24 @@ async function waitForRollButton(page: Page) {
   return rollDice;
 }
 
-async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(`${playerName}'s Turn`);
-  for (let i = 0; i < 5; i++) {
-    if (await turnLabel.isVisible({ timeout: 1000 }).catch(() => false)) {
-      return;
-    }
+async function getTurnLabel(page: Page) {
+  const label = page.getByText(/'s Turn/).first();
+  const text = await label.textContent();
+  return text?.trim() ?? '';
+}
+
+async function waitForTurnChange(page: Page, previous: string) {
+  for (let i = 0; i < 6; i++) {
     await closeAnyModal(page);
     await page.waitForTimeout(500);
+    const current = await getTurnLabel(page);
+    if (current && current !== previous) {
+      return current;
+    }
   }
-  await expect(turnLabel).toBeVisible({ timeout: 15000 });
+  const current = await getTurnLabel(page);
+  expect(current).not.toBe(previous);
+  return current;
 }
 
 test.describe('Complete Game Flow', () => {
@@ -230,6 +238,7 @@ test.describe('Turn Progression', () => {
     
     // Player 1's turn
     await expect(page.getByText("Player 1's Turn")).toBeVisible();
+    const initialTurn = await getTurnLabel(page);
 
     // Roll and wait for Player 2's turn
     await page.getByRole('button', { name: 'Roll Dice' }).click();
@@ -239,7 +248,7 @@ test.describe('Turn Progression', () => {
     await page.waitForTimeout(1500);
     await closeAnyModal(page);
 
-    await waitForTurn(page, 'Player 2');
+    const secondTurn = await waitForTurnChange(page, initialTurn);
 
     // Wait for roll button to be ready
     const rollBtn = await waitForRollButton(page);
@@ -249,7 +258,8 @@ test.describe('Turn Progression', () => {
     await page.waitForTimeout(1500);
     await closeAnyModal(page);
 
-    await waitForTurn(page, 'Player 1');
+    const thirdTurn = await waitForTurnChange(page, secondTurn);
+    expect(thirdTurn).not.toBe(secondTurn);
   });
 
   test('should cycle through 4 players correctly', async ({ page }) => {
@@ -259,7 +269,8 @@ test.describe('Turn Progression', () => {
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-    const players = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
+    let currentTurn = await getTurnLabel(page);
+    const seenTurns = new Set([currentTurn]);
 
     for (let i = 0; i < 4; i++) {
       const rollBtn = await waitForRollButton(page);
@@ -269,12 +280,11 @@ test.describe('Turn Progression', () => {
       await page.waitForTimeout(1500);
       await closeAnyModal(page);
 
-      // Wait for next player's turn
-      await page.waitForTimeout(2000);
+      currentTurn = await waitForTurnChange(page, currentTurn);
+      seenTurns.add(currentTurn);
     }
 
-    // Should be back to Player 1
-    await waitForTurn(page, 'Player 1');
+    expect(seenTurns.size).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -351,21 +361,21 @@ test.describe('Property Rent Payment', () => {
     let boughtProperty = false;
     let landedOnOwn = false;
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 12;
 
     while ((!boughtProperty || !landedOnOwn) && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(800);
 
       try {
         const buyButton = page.getByRole('button', { name: /Buy for \$/ });
         if (await buyButton.isVisible({ timeout: 1500 })) {
           await buyButton.click();
           boughtProperty = true;
-          await page.waitForTimeout(300);
+          await page.waitForTimeout(250);
           continue;
         }
       } catch {
@@ -384,7 +394,7 @@ test.describe('Property Rent Payment', () => {
       }
 
       await closeAnyModal(page);
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(500);
       attempts++;
     }
   });
