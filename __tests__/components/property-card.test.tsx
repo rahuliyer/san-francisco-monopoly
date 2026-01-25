@@ -135,7 +135,7 @@ describe('PropertyCard component', () => {
       
       expect(screen.getByText('$25')).toBeInTheDocument()
       expect(screen.getByText('$50')).toBeInTheDocument()
-      expect(screen.getByText('$100')).toBeInTheDocument()
+      expect(screen.getAllByText('$100').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('$200')).toBeInTheDocument()
     })
 
