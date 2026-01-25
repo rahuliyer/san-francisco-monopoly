@@ -309,8 +309,9 @@ test.describe('Property Ownership Display', () => {
       await closeAnyModal(page);
       await page.waitForTimeout(1500);
 
-      // Properties that are owned should have an owner indicator (box-shadow style)
-      const ownedSpaces = page.locator('[style*="box-shadow: inset"]');
+      // Properties that are owned should have an owner indicator on the board
+      const board = page.locator('.relative.inline-block.bg-emerald-100.p-1');
+      const ownedSpaces = board.locator('.ring-inset');
       await expect.poll(async () => ownedSpaces.count(), { timeout: 10000 }).toBeGreaterThan(0);
     }
   });
