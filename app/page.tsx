@@ -715,6 +715,13 @@ export default function MonopolyGame() {
     gameState.hasRolled &&
     currentPlayer.money >= gameState.selectedSpace.price
 
+  const playerPanelColumnsClass =
+    gameState.players.length === 2
+      ? "md:grid-cols-2"
+      : gameState.players.length === 3
+        ? "md:grid-cols-3"
+        : "md:grid-cols-4"
+
   return (
     <main className="min-h-screen bg-emerald-100 p-4">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-6">
@@ -728,7 +735,7 @@ export default function MonopolyGame() {
         </div>
 
         {/* Player Panels - Below the board */}
-        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 md:grid-cols-4">
+        <div className={`grid w-full max-w-4xl grid-cols-2 gap-3 ${playerPanelColumnsClass}`}>
           {gameState.players.map((player) => (
             <PlayerPanel
               key={player.id}
