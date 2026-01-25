@@ -223,6 +223,71 @@ describe('PropertyCard component', () => {
     })
   })
 
+  describe('Mortgage actions', () => {
+    const mockOnMortgage = jest.fn()
+    const mockOnUnmortgage = jest.fn()
+
+    it('should show mortgage button when canMortgage is true', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onMortgage={mockOnMortgage}
+          canMortgage={true}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /mortgage for \$30/i })).toBeInTheDocument()
+    })
+
+    it('should call onMortgage when mortgage button is clicked', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onMortgage={mockOnMortgage}
+          canMortgage={true}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /mortgage for/i }))
+      expect(mockOnMortgage).toHaveBeenCalledTimes(1)
+    })
+
+    it('should show disabled unmortgage button when player cannot afford', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onUnmortgage={mockOnUnmortgage}
+          canUnmortgage={true}
+          canAffordUnmortgage={false}
+          unmortgageCost={33}
+          isMortgaged={true}
+        />
+      )
+
+      const button = screen.getByRole('button', { name: /lift mortgage for \$33/i })
+      expect(button).toBeDisabled()
+    })
+
+    it('should show mortgaged status message', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          isMortgaged={true}
+        />
+      )
+
+      expect(screen.getByText(/mortgaged to the bank/i)).toBeInTheDocument()
+    })
+  })
+
   describe('Owner display', () => {
     it('should show owner info when property is owned', () => {
       render(

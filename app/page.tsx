@@ -25,6 +25,7 @@ import {
 const DICE_ANIMATION_DURATION = 700
 // Additional delay after dice animation before showing card dialog (ms)
 const CARD_SHOW_DELAY = 400
+const MORTGAGE_INTEREST_RATE = 0.1
 
 // Generate random initial dice values (for display only)
 function getRandomInitialDice(): [number, number] {
@@ -34,10 +35,15 @@ function getRandomInitialDice(): [number, number] {
   ]
 }
 
+function calculateUnmortgageCost(mortgageValue: number): number {
+  return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
+}
+
 interface GameState {
   players: Player[]
   currentPlayerIndex: number
   propertyOwners: Record<number, number>
+  mortgagedProperties: Record<number, boolean>
   diceValues: [number, number]
   hasRolled: boolean
   rolling: boolean
@@ -58,6 +64,7 @@ export default function MonopolyGame() {
     players: [],
     currentPlayerIndex: 0,
     propertyOwners: {},
+    mortgagedProperties: {},
     diceValues: getRandomInitialDice(),
     hasRolled: false,
     rolling: false,
@@ -81,6 +88,8 @@ export default function MonopolyGame() {
     setGameState((prev) => ({
       ...prev,
       players,
+      propertyOwners: {},
+      mortgagedProperties: {},
       gameLog: ["Game started! " + players[0].name + " goes first."],
     }))
     setGameStarted(true)
@@ -492,6 +501,7 @@ export default function MonopolyGame() {
         const ownerId = prev.propertyOwners[landedSpace.id]
         const isOwnProperty = ownerId === prev.currentPlayerIndex
         const isOtherPlayerProperty = ownerId !== undefined && !isOwnProperty
+        const isMortgaged = prev.mortgagedProperties[landedSpace.id] === true
         
         const updatedPlayers = [...prev.players]
         updatedPlayers[prev.currentPlayerIndex] = {
@@ -514,14 +524,16 @@ export default function MonopolyGame() {
 
         // Calculate and charge rent if landing on another player's property
         let rentAmount: number | undefined = undefined
-        if (isPurchasable && isOtherPlayerProperty) {
+        if (isPurchasable && isOtherPlayerProperty && !isMortgaged) {
           const ownerPlayer = updatedPlayers[ownerId]
           
           if (landedSpace.type === "property" && landedSpace.rent) {
             // Check if owner has all properties in the color group
             const colorGroupSpaces = getSpacesByColorGroup(landedSpace.colorGroup)
             const ownsAllInGroup = colorGroupSpaces.every(
-              (s) => prev.propertyOwners[s.id] === ownerId
+              (s) =>
+                prev.propertyOwners[s.id] === ownerId &&
+                prev.mortgagedProperties[s.id] !== true
             )
             // For now, use base rent (houses = 0)
             rentAmount = calculateRent(landedSpace, 0, ownsAllInGroup)
@@ -800,6 +812,82 @@ export default function MonopolyGame() {
     }, 500)
   }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
+  const handleMortgageProperty = useCallback(() => {
+    const space = gameState.selectedSpace
+    if (!space || space.mortgage === undefined) return
+
+    const ownerId = gameState.propertyOwners[space.id]
+    if (ownerId !== gameState.currentPlayerIndex) return
+    if (gameState.mortgagedProperties[space.id]) return
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+
+    setGameState((prev) => {
+      const updatedPlayers = [...prev.players]
+      updatedPlayers[prev.currentPlayerIndex] = {
+        ...updatedPlayers[prev.currentPlayerIndex],
+        money: updatedPlayers[prev.currentPlayerIndex].money + space.mortgage!,
+      }
+      return {
+        ...prev,
+        players: updatedPlayers,
+        mortgagedProperties: {
+          ...prev.mortgagedProperties,
+          [space.id]: true,
+        },
+      }
+    })
+
+    addLog(`${currentPlayer.name} mortgaged ${space.name} for $${space.mortgage}`)
+  }, [
+    gameState.selectedSpace,
+    gameState.propertyOwners,
+    gameState.mortgagedProperties,
+    gameState.currentPlayerIndex,
+    gameState.players,
+    addLog,
+  ])
+
+  const handleUnmortgageProperty = useCallback(() => {
+    const space = gameState.selectedSpace
+    if (!space || space.mortgage === undefined) return
+
+    const ownerId = gameState.propertyOwners[space.id]
+    if (ownerId !== gameState.currentPlayerIndex) return
+    if (!gameState.mortgagedProperties[space.id]) return
+
+    const mortgageCost = calculateUnmortgageCost(space.mortgage)
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (currentPlayer.money < mortgageCost) {
+      addLog(`${currentPlayer.name} cannot afford to lift the mortgage on ${space.name}`)
+      return
+    }
+
+    setGameState((prev) => {
+      const updatedPlayers = [...prev.players]
+      updatedPlayers[prev.currentPlayerIndex] = {
+        ...updatedPlayers[prev.currentPlayerIndex],
+        money: updatedPlayers[prev.currentPlayerIndex].money - mortgageCost,
+      }
+      const updatedMortgaged = { ...prev.mortgagedProperties }
+      delete updatedMortgaged[space.id]
+      return {
+        ...prev,
+        players: updatedPlayers,
+        mortgagedProperties: updatedMortgaged,
+      }
+    })
+
+    addLog(`${currentPlayer.name} lifted the mortgage on ${space.name} for $${mortgageCost}`)
+  }, [
+    gameState.selectedSpace,
+    gameState.propertyOwners,
+    gameState.mortgagedProperties,
+    gameState.currentPlayerIndex,
+    gameState.players,
+    addLog,
+  ])
+
   const handleViewPlayerProperties = useCallback((player: Player) => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
   }, [])
@@ -813,11 +901,22 @@ export default function MonopolyGame() {
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex]
-  const selectedSpaceOwner =
-    gameState.selectedSpace &&
-    gameState.propertyOwners[gameState.selectedSpace.id] !== undefined
-      ? gameState.players[gameState.propertyOwners[gameState.selectedSpace.id]]
+  const selectedSpaceOwnerId =
+    gameState.selectedSpace && gameState.propertyOwners[gameState.selectedSpace.id] !== undefined
+      ? gameState.propertyOwners[gameState.selectedSpace.id]
       : undefined
+  const selectedSpaceOwner =
+    selectedSpaceOwnerId !== undefined ? gameState.players[selectedSpaceOwnerId] : undefined
+  const selectedSpaceIsMortgaged = gameState.selectedSpace
+    ? gameState.mortgagedProperties[gameState.selectedSpace.id] === true
+    : false
+  const selectedSpaceMortgageValue = gameState.selectedSpace?.mortgage
+  const selectedSpaceUnmortgageCost =
+    selectedSpaceMortgageValue !== undefined
+      ? calculateUnmortgageCost(selectedSpaceMortgageValue)
+      : undefined
+  const isSelectedSpaceOwnedByCurrentPlayer =
+    selectedSpaceOwnerId === gameState.currentPlayerIndex
 
   const canBuySelectedSpace =
     gameState.selectedSpace &&
@@ -836,6 +935,22 @@ export default function MonopolyGame() {
     gameState.specialSpace !== null ||
     gameState.viewingPropertiesForPlayer !== null ||
     gameState.players.length < 2
+
+  const canMortgageSelectedSpace =
+    gameState.selectedSpace &&
+    selectedSpaceMortgageValue !== undefined &&
+    isSelectedSpaceOwnedByCurrentPlayer &&
+    !selectedSpaceIsMortgaged
+
+  const canUnmortgageSelectedSpace =
+    gameState.selectedSpace &&
+    selectedSpaceMortgageValue !== undefined &&
+    isSelectedSpaceOwnedByCurrentPlayer &&
+    selectedSpaceIsMortgaged
+
+  const canAffordUnmortgage =
+    selectedSpaceUnmortgageCost !== undefined &&
+    currentPlayer.money >= selectedSpaceUnmortgageCost
   const playerPanelColumnsClass =
     gameState.players.length === 2
       ? "md:grid-cols-2"
@@ -985,6 +1100,13 @@ export default function MonopolyGame() {
           onBuy={handleBuyProperty}
           onPass={handlePassProperty}
           canBuy={canBuySelectedSpace}
+          onMortgage={handleMortgageProperty}
+          onUnmortgage={handleUnmortgageProperty}
+          canMortgage={canMortgageSelectedSpace}
+          canUnmortgage={canUnmortgageSelectedSpace}
+          canAffordUnmortgage={canAffordUnmortgage}
+          isMortgaged={selectedSpaceIsMortgaged}
+          unmortgageCost={selectedSpaceUnmortgageCost}
           isOwnProperty={gameState.isOwnProperty}
           rentPaid={gameState.rentPaid}
           currentPlayerName={currentPlayer.name}
