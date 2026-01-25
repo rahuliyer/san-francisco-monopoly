@@ -4,6 +4,49 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+test.describe('Monopoly flow', () => {
+  test('player can buy a property after rolling', async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0.34;
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /start game/i }).click();
+
+    await page.getByRole('button', { name: /roll dice/i }).click();
+
+    const buyButton = page.getByRole('button', { name: /buy for \$100/i });
+    await expect(buyButton).toBeVisible();
+    await buyButton.click();
+    await expect(buyButton).toHaveCount(0);
+
+    await expect(page.getByText('$1,400')).toBeVisible();
+    await expect(page.getByText('Properties (1)')).toBeVisible();
+  });
+
+  test('owned property shows build requirement message', async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0.34;
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /start game/i }).click();
+    await page.getByRole('button', { name: /roll dice/i }).click();
+
+    const buyButton = page.getByRole('button', { name: /buy for \$100/i });
+    await expect(buyButton).toBeVisible();
+    await buyButton.click();
+    await expect(buyButton).toHaveCount(0);
+
+    await page.getByText('Properties (1)').click();
+    await page.getByRole('button', { name: /sunset district/i }).click();
+
+    await expect(
+      page.getByText('Own all properties in this neighborhood to build.')
+    ).toBeVisible();
+  });
+});
+
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
   try {
