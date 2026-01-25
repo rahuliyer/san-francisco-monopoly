@@ -26,6 +26,7 @@ const DICE_ANIMATION_DURATION = 700
 // Additional delay after dice animation before showing card dialog (ms)
 const CARD_SHOW_DELAY = 400
 const MORTGAGE_INTEREST_RATE = 0.1
+const MAX_HOUSES = 5
 
 // Generate random initial dice values (for display only)
 function getRandomInitialDice(): [number, number] {
@@ -39,11 +40,41 @@ function calculateUnmortgageCost(mortgageValue: number): number {
   return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
 }
 
+function calculateRepairsCost(
+  playerIndex: number,
+  propertyOwners: Record<number, number>,
+  propertyHouses: Record<number, number>,
+  houseAmount: number,
+  hotelAmount: number
+) {
+  let houseCount = 0
+  let hotelCount = 0
+
+  Object.entries(propertyOwners).forEach(([spaceId, ownerId]) => {
+    if (ownerId !== playerIndex) return
+    const space = BOARD_SPACES[Number(spaceId)]
+    if (space?.type !== "property") return
+    const buildings = propertyHouses[Number(spaceId)] ?? 0
+    if (buildings >= MAX_HOUSES) {
+      hotelCount += 1
+    } else {
+      houseCount += buildings
+    }
+  })
+
+  return {
+    houseCount,
+    hotelCount,
+    total: houseCount * houseAmount + hotelCount * hotelAmount,
+  }
+}
+
 interface GameState {
   players: Player[]
   currentPlayerIndex: number
   propertyOwners: Record<number, number>
   mortgagedProperties: Record<number, boolean>
+  propertyHouses: Record<number, number>
   diceValues: [number, number]
   hasRolled: boolean
   rolling: boolean
@@ -65,6 +96,7 @@ export default function MonopolyGame() {
     currentPlayerIndex: 0,
     propertyOwners: {},
     mortgagedProperties: {},
+    propertyHouses: {},
     diceValues: getRandomInitialDice(),
     hasRolled: false,
     rolling: false,
@@ -88,8 +120,10 @@ export default function MonopolyGame() {
     setGameState((prev) => ({
       ...prev,
       players,
+      currentPlayerIndex: 0,
       propertyOwners: {},
       mortgagedProperties: {},
+      propertyHouses: {},
       gameLog: ["Game started! " + players[0].name + " goes first."],
     }))
     setGameStarted(true)
@@ -356,6 +390,7 @@ export default function MonopolyGame() {
             const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
             addLog(`Drew: ${card.text}`)
             
+            let repairsSummary: { total: number; houseCount: number; hotelCount: number } | null = null
             setGameState((prev) => {
               const updatedPlayers = [...prev.players]
               const playerIndex = prev.currentPlayerIndex
@@ -403,10 +438,30 @@ export default function MonopolyGame() {
                     }
                   }
                   break
+                case 'repairs':
+                  repairsSummary = calculateRepairsCost(
+                    playerIndex,
+                    prev.propertyOwners,
+                    prev.propertyHouses,
+                    card.effect.houseAmount,
+                    card.effect.hotelAmount
+                  )
+                  updatedPlayers[playerIndex].money -= repairsSummary.total
+                  break
               }
               
               return { ...prev, players: updatedPlayers, drawnCard: card }
             })
+
+            if (repairsSummary) {
+              const houseLabel = repairsSummary.houseCount === 1 ? "house" : "houses"
+              const hotelLabel = repairsSummary.hotelCount === 1 ? "hotel" : "hotels"
+              const details =
+                repairsSummary.houseCount || repairsSummary.hotelCount
+                  ? ` (${repairsSummary.houseCount} ${houseLabel}, ${repairsSummary.hotelCount} ${hotelLabel})`
+                  : ""
+              addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`)
+            }
           }
 
           // Check if we need to wait for modal interaction or auto-end turn
@@ -535,8 +590,8 @@ export default function MonopolyGame() {
                 prev.propertyOwners[s.id] === ownerId &&
                 prev.mortgagedProperties[s.id] !== true
             )
-            // For now, use base rent (houses = 0)
-            rentAmount = calculateRent(landedSpace, 0, ownsAllInGroup)
+            const houseCount = prev.propertyHouses[landedSpace.id] ?? 0
+            rentAmount = calculateRent(landedSpace, houseCount, ownsAllInGroup)
           } else if (landedSpace.type === "railroad" && landedSpace.rent) {
             // Count how many railroads the owner has
             const railroads = BOARD_SPACES.filter(s => s.type === "railroad")
@@ -644,6 +699,7 @@ export default function MonopolyGame() {
         const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
         addLog(`Drew: ${card.text}`)
         
+        let repairsSummary: { total: number; houseCount: number; hotelCount: number } | null = null
         // Apply card effect
         setGameState((prev) => {
           const updatedPlayers = [...prev.players]
@@ -695,11 +751,30 @@ export default function MonopolyGame() {
                 }
               }
               break
-            // Note: 'repairs' effect would need house/hotel tracking to implement fully
+            case 'repairs':
+              repairsSummary = calculateRepairsCost(
+                playerIndex,
+                prev.propertyOwners,
+                prev.propertyHouses,
+                card.effect.houseAmount,
+                card.effect.hotelAmount
+              )
+              updatedPlayers[playerIndex].money -= repairsSummary.total
+              break
           }
           
           return { ...prev, players: updatedPlayers, drawnCard: card }
         })
+
+        if (repairsSummary) {
+          const houseLabel = repairsSummary.houseCount === 1 ? "house" : "houses"
+          const hotelLabel = repairsSummary.hotelCount === 1 ? "hotel" : "hotels"
+          const details =
+            repairsSummary.houseCount || repairsSummary.hotelCount
+              ? ` (${repairsSummary.houseCount} ${houseLabel}, ${repairsSummary.hotelCount} ${hotelLabel})`
+              : ""
+          addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`)
+        }
       }
 
       // Check if we need to wait for modal interaction or auto-end turn
@@ -888,6 +963,59 @@ export default function MonopolyGame() {
     addLog,
   ])
 
+  const handleBuildHouse = useCallback(() => {
+    const space = gameState.selectedSpace
+    if (!space || space.type !== "property" || !space.houseCost) return
+
+    const ownerId = gameState.propertyOwners[space.id]
+    if (ownerId !== gameState.currentPlayerIndex) return
+
+    const groupSpaces = getSpacesByColorGroup(space.colorGroup)
+    const ownsAllInGroup = groupSpaces.every(
+      (groupSpace) => gameState.propertyOwners[groupSpace.id] === ownerId
+    )
+    if (!ownsAllInGroup) return
+
+    const currentHouseCount = gameState.propertyHouses[space.id] ?? 0
+    if (currentHouseCount >= MAX_HOUSES) return
+
+    const minHouseCount = Math.min(
+      ...groupSpaces.map((groupSpace) => gameState.propertyHouses[groupSpace.id] ?? 0)
+    )
+    if (currentHouseCount !== minHouseCount) return
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (currentPlayer.money < space.houseCost) return
+
+    const nextHouseCount = currentHouseCount + 1
+    setGameState((prev) => {
+      const updatedPlayers = [...prev.players]
+      updatedPlayers[ownerId] = {
+        ...updatedPlayers[ownerId],
+        money: updatedPlayers[ownerId].money - space.houseCost!,
+      }
+
+      return {
+        ...prev,
+        players: updatedPlayers,
+        propertyHouses: {
+          ...prev.propertyHouses,
+          [space.id]: nextHouseCount,
+        },
+      }
+    })
+
+    const buildingLabel = nextHouseCount >= MAX_HOUSES ? "hotel" : "house"
+    addLog(`${currentPlayer.name} built a ${buildingLabel} on ${space.name} for $${space.houseCost}`)
+  }, [
+    gameState.selectedSpace,
+    gameState.propertyOwners,
+    gameState.propertyHouses,
+    gameState.currentPlayerIndex,
+    gameState.players,
+    addLog,
+  ])
+
   const handleViewPlayerProperties = useCallback((player: Player) => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
   }, [])
@@ -917,6 +1045,43 @@ export default function MonopolyGame() {
       : undefined
   const isSelectedSpaceOwnedByCurrentPlayer =
     selectedSpaceOwnerId === gameState.currentPlayerIndex
+
+  const selectedSpaceHouseCount = gameState.selectedSpace
+    ? gameState.propertyHouses[gameState.selectedSpace.id] ?? 0
+    : 0
+  const canManageHouses =
+    gameState.selectedSpace?.type === "property" &&
+    selectedSpaceOwnerId === gameState.currentPlayerIndex
+  let canBuildHouse = false
+  let canBuildHotel = false
+  let buildMessage: string | undefined
+
+  if (canManageHouses && gameState.selectedSpace?.houseCost) {
+    const groupSpaces = getSpacesByColorGroup(gameState.selectedSpace.colorGroup)
+    const ownsAllInGroup =
+      groupSpaces.length > 0 &&
+      groupSpaces.every(
+        (groupSpace) => gameState.propertyOwners[groupSpace.id] === gameState.currentPlayerIndex
+      )
+    const groupHouseCounts = groupSpaces.map(
+      (groupSpace) => gameState.propertyHouses[groupSpace.id] ?? 0
+    )
+    const minHouseCount = groupHouseCounts.length ? Math.min(...groupHouseCounts) : 0
+    const isEvenBuild = selectedSpaceHouseCount === minHouseCount
+
+    if (!ownsAllInGroup) {
+      buildMessage = "Own all properties in this neighborhood to build."
+    } else if (selectedSpaceHouseCount >= MAX_HOUSES) {
+      buildMessage = "This property already has a hotel."
+    } else if (!isEvenBuild) {
+      buildMessage = "Build evenly across the neighborhood."
+    } else if (currentPlayer.money < gameState.selectedSpace.houseCost) {
+      buildMessage = `Need $${gameState.selectedSpace.houseCost} to build.`
+    } else {
+      canBuildHouse = selectedSpaceHouseCount < 4
+      canBuildHotel = selectedSpaceHouseCount === 4
+    }
+  }
 
   const canBuySelectedSpace =
     gameState.selectedSpace &&
@@ -967,6 +1132,7 @@ export default function MonopolyGame() {
             players={gameState.players}
             onSpaceClick={handleSpaceClick}
             propertyOwners={gameState.propertyOwners}
+            propertyHouses={gameState.propertyHouses}
           />
         </div>
 
@@ -1042,45 +1208,57 @@ export default function MonopolyGame() {
                         {group.replace("-", " ")}
                       </h3>
                       <div className="grid gap-2 sm:grid-cols-2">
-                        {properties.map((prop) => (
-                          <button
-                            key={prop.id}
-                            onClick={() => {
-                              handleClosePlayerProperties()
-                              handleSpaceClick(prop)
-                            }}
-                            className="flex items-center gap-3 rounded-lg border border-stone-200 p-3 text-left transition-colors hover:bg-stone-50"
-                          >
-                            <div
-                              className="h-8 w-4 rounded"
-                              style={{
-                                backgroundColor:
-                                  prop.colorGroup === "railroad"
-                                    ? "#4A4A4A"
-                                    : prop.colorGroup === "utility"
-                                      ? "#D3D3D3"
-                                      : prop.colorGroup
-                                        ? {
-                                            brown: "#8B4513",
-                                            "light-blue": "#87CEEB",
-                                            pink: "#FF69B4",
-                                            orange: "#FFA500",
-                                            red: "#FF0000",
-                                            yellow: "#FFD700",
-                                            green: "#228B22",
-                                            "dark-blue": "#00008B",
-                                          }[prop.colorGroup]
-                                        : "#ccc",
+                        {properties.map((prop) => {
+                          const houseCount = gameState.propertyHouses[prop.id] ?? 0
+                          const houseLabel =
+                            houseCount >= MAX_HOUSES
+                              ? "Hotel"
+                              : houseCount > 0
+                                ? `${houseCount} House${houseCount === 1 ? "" : "s"}`
+                                : null
+                          return (
+                            <button
+                              key={prop.id}
+                              onClick={() => {
+                                handleClosePlayerProperties()
+                                handleSpaceClick(prop)
                               }}
-                            />
-                            <div>
-                              <p className="font-medium text-stone-800">{prop.name}</p>
-                              {prop.price && (
-                                <p className="text-sm text-stone-500">${prop.price}</p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
+                              className="flex items-center gap-3 rounded-lg border border-stone-200 p-3 text-left transition-colors hover:bg-stone-50"
+                            >
+                              <div
+                                className="h-8 w-4 rounded"
+                                style={{
+                                  backgroundColor:
+                                    prop.colorGroup === "railroad"
+                                      ? "#4A4A4A"
+                                      : prop.colorGroup === "utility"
+                                        ? "#D3D3D3"
+                                        : prop.colorGroup
+                                          ? {
+                                              brown: "#8B4513",
+                                              "light-blue": "#87CEEB",
+                                              pink: "#FF69B4",
+                                              orange: "#FFA500",
+                                              red: "#FF0000",
+                                              yellow: "#FFD700",
+                                              green: "#228B22",
+                                              "dark-blue": "#00008B",
+                                            }[prop.colorGroup]
+                                          : "#ccc",
+                                }}
+                              />
+                              <div>
+                                <p className="font-medium text-stone-800">{prop.name}</p>
+                                {prop.price && (
+                                  <p className="text-sm text-stone-500">${prop.price}</p>
+                                )}
+                                {prop.type === "property" && houseLabel && (
+                                  <p className="text-xs text-stone-500">{houseLabel}</p>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
@@ -1110,6 +1288,13 @@ export default function MonopolyGame() {
           isOwnProperty={gameState.isOwnProperty}
           rentPaid={gameState.rentPaid}
           currentPlayerName={currentPlayer.name}
+          houseCount={selectedSpaceHouseCount}
+          canManageHouses={canManageHouses}
+          canBuildHouse={canBuildHouse}
+          canBuildHotel={canBuildHotel}
+          buildMessage={buildMessage}
+          onBuildHouse={handleBuildHouse}
+          onBuildHotel={handleBuildHouse}
         />
       )}
 

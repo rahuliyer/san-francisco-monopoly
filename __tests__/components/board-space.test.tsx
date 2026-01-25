@@ -70,6 +70,20 @@ describe('BoardSpace component', () => {
       const colorBar = container.querySelector('[style*="background-color"]')
       expect(colorBar).toBeInTheDocument()
     })
+
+    it('should display house markers when houseCount is provided', () => {
+      const { container } = render(
+        <BoardSpace
+          space={propertySpace}
+          players={[]}
+          position="bottom"
+          houseCount={3}
+        />
+      )
+
+      const houseMarkers = container.querySelectorAll('span.bg-emerald-600')
+      expect(houseMarkers).toHaveLength(3)
+    })
   })
 
   describe('Special spaces', () => {

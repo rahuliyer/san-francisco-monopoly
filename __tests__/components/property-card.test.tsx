@@ -14,6 +14,7 @@ jest.mock('next/image', () => ({
 describe('PropertyCard component', () => {
   const mockOnClose = jest.fn()
   const mockOnBuy = jest.fn()
+  const mockOnBuild = jest.fn()
 
   // Get sample spaces
   const propertySpace = BOARD_SPACES.find(s => s.name === 'Tenderloin')!
@@ -325,6 +326,54 @@ describe('PropertyCard component', () => {
       )
 
       expect(screen.getByRole('button', { name: /lift mortgage for \$33/i })).toBeInTheDocument()
+    })
+  })
+
+  describe('House building', () => {
+    it('should display building status when houses are present', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={2}
+        />
+      )
+
+      expect(screen.getByText('Buildings')).toBeInTheDocument()
+      expect(screen.getByText('2 Houses')).toBeInTheDocument()
+    })
+
+    it('should show Build House button when eligible', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={0}
+          canManageHouses={true}
+          canBuildHouse={true}
+          onBuildHouse={mockOnBuild}
+        />
+      )
+
+      const buildButton = screen.getByRole('button', { name: /build house/i })
+      expect(buildButton).toBeInTheDocument()
+      fireEvent.click(buildButton)
+      expect(mockOnBuild).toHaveBeenCalledTimes(1)
+    })
+
+    it('should show Build Hotel button when property has 4 houses', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={4}
+          canManageHouses={true}
+          canBuildHotel={true}
+          onBuildHotel={mockOnBuild}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /build hotel/i })).toBeInTheDocument()
     })
   })
 
