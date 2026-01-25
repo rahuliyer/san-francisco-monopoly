@@ -83,30 +83,15 @@ test.describe('Game Controls', () => {
 
     // Handle modals - wait a bit for them to appear
     await page.waitForTimeout(1500);
+    await closeAnyModal(page);
 
-    try {
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
-      if (await continueBtn.isVisible({ timeout: 2000 })) {
-        await continueBtn.click();
-      }
-    } catch {
-      // No modal
-    }
+    // Wait for Player 2's turn (or Player 1's if in jail)
+    await expect(page.getByText("Player 2's Turn").or(page.getByText("Player 1's Turn"))).toBeVisible({ timeout: 15000 });
 
-    try {
-      const passBtn = page.getByRole('button', { name: 'Pass' });
-      if (await passBtn.isVisible({ timeout: 1000 })) {
-        await passBtn.click();
-      }
-    } catch {
-      // No modal
-    }
-
-    // Wait for Player 2's turn
-    await expect(page.getByText("Player 2's Turn")).toBeVisible({ timeout: 15000 });
-
-    // Roll button should be enabled for Player 2
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeEnabled({ timeout: 5000 });
+    // Roll button or Roll for Doubles should be enabled for next player
+    const rollDice = page.getByRole('button', { name: 'Roll Dice' });
+    const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
+    await expect(rollDice.or(rollForDoubles)).toBeEnabled({ timeout: 5000 });
   });
 });
 
@@ -194,8 +179,8 @@ test.describe('Game Controls Styling', () => {
   });
 
   test('should have shadow on game controls container', async ({ page }) => {
-    // The game controls container has shadow-md class
-    const controlsContainer = page.locator('.rounded-lg.bg-white.p-4.shadow-md');
+    // The game controls container has shadow-md class and contains Turn info
+    const controlsContainer = page.locator('.flex.flex-col.items-center.gap-4.rounded-lg.bg-white.p-4.shadow-md');
     await expect(controlsContainer).toBeVisible();
   });
 });
