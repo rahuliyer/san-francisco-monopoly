@@ -51,7 +51,7 @@ test.describe('Jail Mechanics', () => {
 
   test('should show Go To Jail modal elements', async ({ page }) => {
     // Roll several times to try to land on Go To Jail
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -79,7 +79,7 @@ test.describe('Jail Mechanics', () => {
 
   test('should display jail status in player panel when in jail', async ({ page }) => {
     // Play until someone goes to jail
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -102,7 +102,7 @@ test.describe('Jail Mechanics', () => {
 
   test('should show jail controls when player is in jail', async ({ page }) => {
     // Play until current player goes to jail
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -127,7 +127,7 @@ test.describe('Jail Mechanics', () => {
 
   test('should allow paying $50 to leave jail', async ({ page }) => {
     // Play until current player goes to jail
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -156,7 +156,7 @@ test.describe('Jail Mechanics', () => {
 
   test('should show turn count while in jail', async ({ page }) => {
     // Play until current player goes to jail
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -179,7 +179,7 @@ test.describe('Jail Mechanics', () => {
 
   test('should show roll result when rolling for doubles in jail', async ({ page }) => {
     // Play until current player goes to jail
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });

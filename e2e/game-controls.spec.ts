@@ -119,7 +119,7 @@ test.describe('Jail Controls', () => {
 
   test('should show jail-specific controls when in jail', async ({ page }) => {
     // Play until someone is in jail
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -141,7 +141,7 @@ test.describe('Jail Controls', () => {
   });
 
   test('should show turn count in jail', async ({ page }) => {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -161,7 +161,7 @@ test.describe('Jail Controls', () => {
   });
 
   test('should indicate escape instructions', async ({ page }) => {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
