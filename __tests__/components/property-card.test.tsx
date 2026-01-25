@@ -138,6 +138,19 @@ describe('PropertyCard component', () => {
       expect(screen.getByText('$100')).toBeInTheDocument()
       expect(screen.getByText('$200')).toBeInTheDocument()
     })
+
+    it('should display mortgage value for railroads', () => {
+      render(
+        <PropertyCard
+          space={railroadSpace}
+          onClose={mockOnClose}
+        />
+      )
+
+      expect(screen.getByText('Mortgage Value')).toBeInTheDocument()
+      const mortgageValues = screen.getAllByText(`$${railroadSpace.mortgage}`)
+      expect(mortgageValues.length).toBeGreaterThanOrEqual(1)
+    })
   })
 
   describe('Utility cards', () => {
@@ -151,6 +164,18 @@ describe('PropertyCard component', () => {
       
       expect(screen.getByText(/4x the dice roll/i)).toBeInTheDocument()
       expect(screen.getByText(/10x the dice roll/i)).toBeInTheDocument()
+    })
+
+    it('should display mortgage value for utilities', () => {
+      render(
+        <PropertyCard
+          space={utilitySpace}
+          onClose={mockOnClose}
+        />
+      )
+
+      expect(screen.getByText('Mortgage Value')).toBeInTheDocument()
+      expect(screen.getByText(`$${utilitySpace.mortgage}`)).toBeInTheDocument()
     })
   })
 
@@ -285,6 +310,21 @@ describe('PropertyCard component', () => {
       )
 
       expect(screen.getByText(/mortgaged to the bank/i)).toBeInTheDocument()
+    })
+
+    it('should default unmortgage cost to 10% interest', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onUnmortgage={mockOnUnmortgage}
+          canUnmortgage={true}
+          isMortgaged={true}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /lift mortgage for \$33/i })).toBeInTheDocument()
     })
   })
 
