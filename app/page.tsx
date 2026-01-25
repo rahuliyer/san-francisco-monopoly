@@ -68,6 +68,22 @@ export default function MonopolyGame() {
     }))
   }, [])
 
+  const handleEndTurn = useCallback(() => {
+    setGameState((prev) => {
+      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
+      const nextPlayerName = prev.players[nextPlayerIndex].name
+      // Schedule the log message after state update
+      setTimeout(() => addLog(`${nextPlayerName}'s turn`), 0)
+      return {
+        ...prev,
+        currentPlayerIndex: nextPlayerIndex,
+        hasRolled: false,
+        diceValues: getRandomInitialDice(),
+        awaitingPropertyDecision: false,
+      }
+    })
+  }, [addLog])
+
   const handleRoll = useCallback(() => {
     // Clear any pending end turn timeout
     if (endTurnTimeoutRef.current) {
@@ -165,22 +181,6 @@ export default function MonopolyGame() {
       })
     }, 800)
   }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
-
-  const handleEndTurn = useCallback(() => {
-    setGameState((prev) => {
-      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
-      const nextPlayerName = prev.players[nextPlayerIndex].name
-      // Schedule the log message after state update
-      setTimeout(() => addLog(`${nextPlayerName}'s turn`), 0)
-      return {
-        ...prev,
-        currentPlayerIndex: nextPlayerIndex,
-        hasRolled: false,
-        diceValues: getRandomInitialDice(),
-        awaitingPropertyDecision: false,
-      }
-    })
-  }, [addLog])
 
   const handleSpaceClick = useCallback((space: Space) => {
     if (space.type === "property" || space.type === "railroad" || space.type === "utility") {
