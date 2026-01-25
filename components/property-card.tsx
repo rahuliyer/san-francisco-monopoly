@@ -11,10 +11,24 @@ interface PropertyCardProps {
   owner?: Player
   onClose: () => void
   onBuy?: () => void
+  onPass?: () => void
   canBuy?: boolean
+  isOwnProperty?: boolean
+  rentPaid?: number
+  currentPlayerName?: string
 }
 
-export function PropertyCard({ space, owner, onClose, onBuy, canBuy }: PropertyCardProps) {
+export function PropertyCard({ 
+  space, 
+  owner, 
+  onClose, 
+  onBuy, 
+  onPass,
+  canBuy,
+  isOwnProperty,
+  rentPaid,
+  currentPlayerName
+}: PropertyCardProps) {
   const colorBarColor = space.colorGroup ? COLOR_MAP[space.colorGroup] : "#666"
 
   return (
@@ -125,7 +139,48 @@ export function PropertyCard({ space, owner, onClose, onBuy, canBuy }: PropertyC
             </div>
           )}
 
-          {owner && (
+          {/* Show when player lands on their own property */}
+          {isOwnProperty && owner && (
+            <div className="mt-3 rounded bg-emerald-100 p-3 text-center">
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <PlayerToken3D
+                  icon={owner.token}
+                  color={owner.color}
+                  name={owner.name}
+                  size="sm"
+                />
+              </div>
+              <p className="text-sm font-medium text-emerald-700">
+                You own this property!
+              </p>
+              <p className="mt-1 text-xs text-emerald-600">
+                No rent is due. Enjoy your stay!
+              </p>
+            </div>
+          )}
+
+          {/* Show when player lands on another player's property and paid rent */}
+          {rentPaid !== undefined && owner && !isOwnProperty && (
+            <div className="mt-3 rounded bg-red-100 p-3 text-center">
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <PlayerToken3D
+                  icon={owner.token}
+                  color={owner.color}
+                  name={owner.name}
+                  size="sm"
+                />
+              </div>
+              <p className="text-sm font-medium text-red-700">
+                Property owned by {owner.name}
+              </p>
+              <p className="mt-1 text-lg font-bold text-red-600">
+                Rent Paid: ${rentPaid}
+              </p>
+            </div>
+          )}
+
+          {/* Show owner info when just viewing a property (not landing scenarios) */}
+          {owner && !isOwnProperty && rentPaid === undefined && (
             <div className="mt-3 flex items-center gap-2 rounded bg-stone-100 p-2">
               <PlayerToken3D
                 icon={owner.token}
@@ -137,9 +192,22 @@ export function PropertyCard({ space, owner, onClose, onBuy, canBuy }: PropertyC
             </div>
           )}
 
+          {/* Buy and Pass buttons for unowned properties */}
           {canBuy && onBuy && (
-            <Button onClick={onBuy} className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700">
-              Buy for ${space.price}
+            <div className="mt-4 flex gap-2">
+              <Button onClick={onPass} variant="outline" className="flex-1">
+                Pass
+              </Button>
+              <Button onClick={onBuy} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+                Buy for ${space.price}
+              </Button>
+            </div>
+          )}
+
+          {/* Continue button for owned property scenarios */}
+          {(isOwnProperty || rentPaid !== undefined) && (
+            <Button onClick={onClose} className="mt-4 w-full bg-stone-600 hover:bg-stone-700">
+              Continue
             </Button>
           )}
         </div>

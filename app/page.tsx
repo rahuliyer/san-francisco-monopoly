@@ -16,6 +16,8 @@ import {
   rollDice,
   drawChanceCard,
   drawCommunityChestCard,
+  calculateRent,
+  getSpacesByColorGroup,
 } from "@/lib/game-data"
 
 // Generate random initial dice values (for display only)
@@ -39,6 +41,8 @@ interface GameState {
   gameLog: string[]
   awaitingPropertyDecision: boolean
   awaitingSpecialSpace: boolean
+  isOwnProperty: boolean
+  rentPaid: number | undefined
 }
 
 export default function MonopolyGame() {
@@ -56,6 +60,8 @@ export default function MonopolyGame() {
     gameLog: [],
     awaitingPropertyDecision: false,
     awaitingSpecialSpace: false,
+    isOwnProperty: false,
+    rentPaid: undefined,
   })
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -93,6 +99,8 @@ export default function MonopolyGame() {
         awaitingSpecialSpace: false,
         specialSpace: null,
         drawnCard: null,
+        isOwnProperty: false,
+        rentPaid: undefined,
       }
     })
   }, [addLog])
@@ -137,6 +145,10 @@ export default function MonopolyGame() {
 
       setGameState((prev) => {
         const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+        const ownerId = prev.propertyOwners[landedSpace.id]
+        const isOwnProperty = ownerId === prev.currentPlayerIndex
+        const isOtherPlayerProperty = ownerId !== undefined && !isOwnProperty
+        
         const updatedPlayers = [...prev.players]
         updatedPlayers[prev.currentPlayerIndex] = {
           ...updatedPlayers[prev.currentPlayerIndex],
@@ -156,18 +168,66 @@ export default function MonopolyGame() {
           }
         }
 
+        // Calculate and charge rent if landing on another player's property
+        let rentAmount: number | undefined = undefined
+        if (isPurchasable && isOtherPlayerProperty) {
+          const ownerPlayer = updatedPlayers[ownerId]
+          
+          if (landedSpace.type === "property" && landedSpace.rent) {
+            // Check if owner has all properties in the color group
+            const colorGroupSpaces = getSpacesByColorGroup(landedSpace.colorGroup)
+            const ownsAllInGroup = colorGroupSpaces.every(
+              (s) => prev.propertyOwners[s.id] === ownerId
+            )
+            // For now, use base rent (houses = 0)
+            rentAmount = calculateRent(landedSpace, 0, ownsAllInGroup)
+          } else if (landedSpace.type === "railroad" && landedSpace.rent) {
+            // Count how many railroads the owner has
+            const railroads = BOARD_SPACES.filter(s => s.type === "railroad")
+            const ownedRailroads = railroads.filter(r => prev.propertyOwners[r.id] === ownerId)
+            rentAmount = landedSpace.rent[ownedRailroads.length - 1] || 25
+          } else if (landedSpace.type === "utility") {
+            // Check how many utilities the owner has
+            const utilities = BOARD_SPACES.filter(s => s.type === "utility")
+            const ownedUtilities = utilities.filter(u => prev.propertyOwners[u.id] === ownerId)
+            const multiplier = ownedUtilities.length === 2 ? 10 : 4
+            rentAmount = (dice[0] + dice[1]) * multiplier
+          }
+
+          // Transfer rent from current player to owner
+          if (rentAmount !== undefined) {
+            updatedPlayers[prev.currentPlayerIndex].money -= rentAmount
+            updatedPlayers[ownerId].money += rentAmount
+          }
+        }
+
+        // Determine what modal to show
+        let selectedSpace: Space | null = null
+        let awaitingPropertyDecision = false
+        
+        if (isPurchasable) {
+          if (isUnowned) {
+            selectedSpace = landedSpace
+            awaitingPropertyDecision = true
+          } else if (isOwnProperty || isOtherPlayerProperty) {
+            selectedSpace = landedSpace
+            awaitingPropertyDecision = true
+          }
+        }
+
         return {
           ...prev,
           players: updatedPlayers,
           diceValues: dice,
           hasRolled: true,
           rolling: false,
-          // Auto-show buy modal if it's a purchasable unowned space
-          selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
-          awaitingPropertyDecision: isPurchasable && isUnowned,
+          selectedSpace,
+          awaitingPropertyDecision,
           // Show special space modal for non-purchasable special spaces
           specialSpace: isSpecialSpace ? landedSpace : null,
           awaitingSpecialSpace: isSpecialSpace,
+          isOwnProperty: isPurchasable && isOwnProperty,
+          rentPaid: rentAmount,
         }
       })
 
@@ -176,6 +236,18 @@ export default function MonopolyGame() {
       if (passedGo) logMessage += " and passed GO (+$200)"
       addLog(logMessage)
       addLog(`Landed on ${landedSpace.name}`)
+
+      // Log rent payment for landing on another player's property
+      setGameState((prev) => {
+        if (prev.rentPaid !== undefined && prev.selectedSpace) {
+          const ownerId = prev.propertyOwners[prev.selectedSpace.id]
+          if (ownerId !== undefined) {
+            const ownerName = prev.players[ownerId].name
+            setTimeout(() => addLog(`${currentPlayer.name} paid $${prev.rentPaid} rent to ${ownerName}`), 0)
+          }
+        }
+        return prev
+      })
 
       // Handle landing effects
       if (landedSpace.type === "go-to-jail") {
@@ -253,12 +325,11 @@ export default function MonopolyGame() {
 
       // Check if we need to wait for modal interaction or auto-end turn
       setGameState((prev) => {
-        const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
-        if ((isPurchasable && isUnowned) || isSpecialSpace) {
+        if (prev.awaitingPropertyDecision || prev.awaitingSpecialSpace) {
           // Player needs to interact with a modal - turn will end when modal closes
           return prev
         } else {
-          // Auto-end turn after a short delay (for owned properties)
+          // Auto-end turn after a short delay (for non-interactive spaces)
           endTurnTimeoutRef.current = setTimeout(() => {
             handleEndTurn()
           }, 1500)
@@ -282,9 +353,34 @@ export default function MonopolyGame() {
           handleEndTurn()
         }, 500)
       }
-      return { ...prev, selectedSpace: null, awaitingPropertyDecision: false }
+      return { 
+        ...prev, 
+        selectedSpace: null, 
+        awaitingPropertyDecision: false,
+        isOwnProperty: false,
+        rentPaid: undefined,
+      }
     })
   }, [handleEndTurn])
+
+  const handlePassProperty = useCallback(() => {
+    const space = gameState.selectedSpace
+    if (!space) return
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    addLog(`${currentPlayer.name} passed on buying ${space.name}`)
+
+    setGameState((prev) => ({
+      ...prev,
+      selectedSpace: null,
+      awaitingPropertyDecision: false,
+    }))
+    
+    // End turn after passing
+    endTurnTimeoutRef.current = setTimeout(() => {
+      handleEndTurn()
+    }, 500)
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
   const handleCloseSpecialCard = useCallback(() => {
     setGameState((prev) => {
@@ -415,7 +511,11 @@ export default function MonopolyGame() {
           owner={selectedSpaceOwner}
           onClose={handleCloseCard}
           onBuy={handleBuyProperty}
+          onPass={handlePassProperty}
           canBuy={canBuySelectedSpace}
+          isOwnProperty={gameState.isOwnProperty}
+          rentPaid={gameState.rentPaid}
+          currentPlayerName={currentPlayer.name}
         />
       )}
 
