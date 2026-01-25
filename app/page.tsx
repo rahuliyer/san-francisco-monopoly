@@ -10,9 +10,12 @@ import { SpecialSpaceCard } from "@/components/special-space-card"
 import {
   Player,
   Space,
+  GameCard,
   BOARD_SPACES,
   createPlayer,
   rollDice,
+  drawChanceCard,
+  drawCommunityChestCard,
 } from "@/lib/game-data"
 
 // Generate random initial dice values (for display only)
@@ -32,6 +35,7 @@ interface GameState {
   rolling: boolean
   selectedSpace: Space | null
   specialSpace: Space | null
+  drawnCard: GameCard | null
   gameLog: string[]
   awaitingPropertyDecision: boolean
   awaitingSpecialSpace: boolean
@@ -48,6 +52,7 @@ export default function MonopolyGame() {
     rolling: false,
     selectedSpace: null,
     specialSpace: null,
+    drawnCard: null,
     gameLog: [],
     awaitingPropertyDecision: false,
     awaitingSpecialSpace: false,
@@ -87,6 +92,7 @@ export default function MonopolyGame() {
         awaitingPropertyDecision: false,
         awaitingSpecialSpace: false,
         specialSpace: null,
+        drawnCard: null,
       }
     })
   }, [addLog])
@@ -182,6 +188,67 @@ export default function MonopolyGame() {
           return { ...prev, players: updatedPlayers }
         })
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
+      } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
+        // Draw a card
+        const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
+        addLog(`Drew: ${card.text}`)
+        
+        // Apply card effect
+        setGameState((prev) => {
+          const updatedPlayers = [...prev.players]
+          const playerIndex = prev.currentPlayerIndex
+          
+          switch (card.effect.type) {
+            case 'collect':
+              updatedPlayers[playerIndex].money += card.effect.amount
+              break
+            case 'pay':
+              updatedPlayers[playerIndex].money -= card.effect.amount
+              break
+            case 'advance-to-go':
+              updatedPlayers[playerIndex].position = 0
+              updatedPlayers[playerIndex].money += 200
+              break
+            case 'advance':
+              // Check if we pass GO
+              if (card.effect.position < updatedPlayers[playerIndex].position) {
+                updatedPlayers[playerIndex].money += 200
+              }
+              updatedPlayers[playerIndex].position = card.effect.position
+              break
+            case 'go-to-jail':
+              updatedPlayers[playerIndex].position = 10
+              updatedPlayers[playerIndex].inJail = true
+              updatedPlayers[playerIndex].jailTurns = 0
+              break
+            case 'go-back':
+              updatedPlayers[playerIndex].position = (updatedPlayers[playerIndex].position - card.effect.spaces + 40) % 40
+              break
+            case 'collect-from-players':
+              // Collect from each other player
+              const collectAmount = card.effect.amount * (prev.players.length - 1)
+              updatedPlayers[playerIndex].money += collectAmount
+              for (let i = 0; i < updatedPlayers.length; i++) {
+                if (i !== playerIndex) {
+                  updatedPlayers[i].money -= card.effect.amount
+                }
+              }
+              break
+            case 'pay-to-players':
+              // Pay each other player
+              const payAmount = card.effect.amount * (prev.players.length - 1)
+              updatedPlayers[playerIndex].money -= payAmount
+              for (let i = 0; i < updatedPlayers.length; i++) {
+                if (i !== playerIndex) {
+                  updatedPlayers[i].money += card.effect.amount
+                }
+              }
+              break
+            // Note: 'repairs' effect would need house/hotel tracking to implement fully
+          }
+          
+          return { ...prev, players: updatedPlayers, drawnCard: card }
+        })
       }
 
       // Check if we need to wait for modal interaction or auto-end turn
@@ -357,6 +424,7 @@ export default function MonopolyGame() {
         <SpecialSpaceCard
           space={gameState.specialSpace}
           onClose={handleCloseSpecialCard}
+          drawnCard={gameState.drawnCard}
         />
       )}
     </main>

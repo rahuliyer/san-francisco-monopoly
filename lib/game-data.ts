@@ -136,3 +136,69 @@ export function calculateRent(space: Space, houses: number, ownsAllInGroup: bool
   }
   return space.rent[houses] || space.rent[0]
 }
+
+// Card types for Chance and Community Chest
+export type CardEffect = 
+  | { type: 'collect'; amount: number }
+  | { type: 'pay'; amount: number }
+  | { type: 'advance'; position: number }
+  | { type: 'advance-to-go' }
+  | { type: 'go-to-jail' }
+  | { type: 'collect-from-players'; amount: number }
+  | { type: 'pay-to-players'; amount: number }
+  | { type: 'repairs'; houseAmount: number; hotelAmount: number }
+  | { type: 'go-back'; spaces: number }
+
+export interface GameCard {
+  id: number
+  text: string
+  effect: CardEffect
+}
+
+export const CHANCE_CARDS: GameCard[] = [
+  { id: 1, text: "Advance to Fisherman's Wharf (GO). Collect $200.", effect: { type: 'advance-to-go' } },
+  { id: 2, text: "Advance to Sea Cliff. If you pass GO, collect $200.", effect: { type: 'advance', position: 39 } },
+  { id: 3, text: "Advance to Pacific Heights. If you pass GO, collect $200.", effect: { type: 'advance', position: 29 } },
+  { id: 4, text: "Advance to Castro. If you pass GO, collect $200.", effect: { type: 'advance', position: 23 } },
+  { id: 5, text: "Take a ride on BART. If you pass GO, collect $200.", effect: { type: 'advance', position: 15 } },
+  { id: 6, text: "Take a ride on the Cable Car. If you pass GO, collect $200.", effect: { type: 'advance', position: 35 } },
+  { id: 7, text: "Bank pays you dividend of $50.", effect: { type: 'collect', amount: 50 } },
+  { id: 8, text: "Your tech startup IPO'd! Collect $150.", effect: { type: 'collect', amount: 150 } },
+  { id: 9, text: "Go directly to Alcatraz. Do not pass GO. Do not collect $200.", effect: { type: 'go-to-jail' } },
+  { id: 10, text: "Make general repairs on all your property: Pay $25 per house, $100 per hotel.", effect: { type: 'repairs', houseAmount: 25, hotelAmount: 100 } },
+  { id: 11, text: "Parking fine: Pay $15.", effect: { type: 'pay', amount: 15 } },
+  { id: 12, text: "Go back 3 spaces.", effect: { type: 'go-back', spaces: 3 } },
+  { id: 13, text: "You won the SF Marathon! Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 14, text: "Your sourdough bread won first place! Collect $200.", effect: { type: 'collect', amount: 200 } },
+  { id: 15, text: "Speeding ticket on the Bay Bridge: Pay $50.", effect: { type: 'pay', amount: 50 } },
+  { id: 16, text: "Advance to Golden Gate Park (Free Parking).", effect: { type: 'advance', position: 20 } },
+]
+
+export const COMMUNITY_CHEST_CARDS: GameCard[] = [
+  { id: 1, text: "Advance to Fisherman's Wharf (GO). Collect $200.", effect: { type: 'advance-to-go' } },
+  { id: 2, text: "Bank error in your favor. Collect $200.", effect: { type: 'collect', amount: 200 } },
+  { id: 3, text: "Doctor's fee: Pay $50.", effect: { type: 'pay', amount: 50 } },
+  { id: 4, text: "From sale of Dungeness crab you get $50.", effect: { type: 'collect', amount: 50 } },
+  { id: 5, text: "Go directly to Alcatraz. Do not pass GO. Do not collect $200.", effect: { type: 'go-to-jail' } },
+  { id: 6, text: "SF Giants win the World Series! Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 7, text: "Income tax refund. Collect $20.", effect: { type: 'collect', amount: 20 } },
+  { id: 8, text: "It's your birthday! Collect $10 from each player.", effect: { type: 'collect-from-players', amount: 10 } },
+  { id: 9, text: "Life insurance matures. Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 10, text: "Hospital fees: Pay $100.", effect: { type: 'pay', amount: 100 } },
+  { id: 11, text: "School fees: Pay $50.", effect: { type: 'pay', amount: 50 } },
+  { id: 12, text: "Receive $25 consultancy fee.", effect: { type: 'collect', amount: 25 } },
+  { id: 13, text: "Street repairs: Pay $40 per house, $115 per hotel.", effect: { type: 'repairs', houseAmount: 40, hotelAmount: 115 } },
+  { id: 14, text: "You won second prize in a fog horn contest. Collect $10.", effect: { type: 'collect', amount: 10 } },
+  { id: 15, text: "You inherit $100 from a sourdough fortune.", effect: { type: 'collect', amount: 100 } },
+  { id: 16, text: "Pay your MUNI fare: $50.", effect: { type: 'pay', amount: 50 } },
+]
+
+export function drawChanceCard(): GameCard {
+  const index = Math.floor(Math.random() * CHANCE_CARDS.length)
+  return CHANCE_CARDS[index]
+}
+
+export function drawCommunityChestCard(): GameCard {
+  const index = Math.floor(Math.random() * COMMUNITY_CHEST_CARDS.length)
+  return COMMUNITY_CHEST_CARDS[index]
+}

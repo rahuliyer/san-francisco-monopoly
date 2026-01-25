@@ -1,13 +1,14 @@
 "use client"
 
 import Image from "next/image"
-import { Space } from "@/lib/game-data"
+import { Space, GameCard } from "@/lib/game-data"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 
 interface SpecialSpaceCardProps {
   space: Space
   onClose: () => void
+  drawnCard?: GameCard | null
   message?: string
 }
 
@@ -44,10 +45,41 @@ const DEFAULT_MESSAGES: Record<string, string> = {
   "tax": "Pay your taxes to the city of San Francisco.",
 }
 
-export function SpecialSpaceCard({ space, onClose, message }: SpecialSpaceCardProps) {
+// Get effect description for a card
+function getCardEffectDescription(card: GameCard): string {
+  const effect = card.effect
+  switch (effect.type) {
+    case 'collect':
+      return `+$${effect.amount}`
+    case 'pay':
+      return `-$${effect.amount}`
+    case 'advance-to-go':
+      return '+$200'
+    case 'advance':
+      return 'Move to new location'
+    case 'go-to-jail':
+      return 'Go to Alcatraz!'
+    case 'go-back':
+      return `Go back ${effect.spaces} spaces`
+    case 'collect-from-players':
+      return `+$${effect.amount} from each player`
+    case 'pay-to-players':
+      return `-$${effect.amount} to each player`
+    case 'repairs':
+      return `Pay $${effect.houseAmount}/house, $${effect.hotelAmount}/hotel`
+    default:
+      return ''
+  }
+}
+
+export function SpecialSpaceCard({ space, onClose, drawnCard, message }: SpecialSpaceCardProps) {
   const backgroundColor = SPACE_COLORS[space.type] || "#666"
   const label = SPACE_LABELS[space.type] || space.type
-  const displayMessage = message || DEFAULT_MESSAGES[space.type] || ""
+  
+  // For Chance and Community Chest, show the drawn card text
+  const displayMessage = (space.type === "chance" || space.type === "community-chest") && drawnCard
+    ? drawnCard.text
+    : (message || DEFAULT_MESSAGES[space.type] || "")
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -87,6 +119,18 @@ export function SpecialSpaceCard({ space, onClose, message }: SpecialSpaceCardPr
         {/* Card content */}
         <div className="p-4">
           <p className="text-center text-sm text-stone-600">{displayMessage}</p>
+
+          {/* Chance/Community Chest card effect */}
+          {(space.type === "chance" || space.type === "community-chest") && drawnCard && (
+            <div 
+              className="mt-3 rounded p-3 text-center"
+              style={{ backgroundColor: `${backgroundColor}20` }}
+            >
+              <p className="text-lg font-bold" style={{ color: backgroundColor }}>
+                {getCardEffectDescription(drawnCard)}
+              </p>
+            </div>
+          )}
 
           {/* Tax specific content */}
           {space.type === "tax" && (
