@@ -6,6 +6,7 @@ import { GameBoard } from "@/components/game-board"
 import { PlayerPanel } from "@/components/player-panel"
 import { GameControls } from "@/components/game-controls"
 import { PropertyCard } from "@/components/property-card"
+import { SpecialSpaceCard } from "@/components/special-space-card"
 import {
   Player,
   Space,
@@ -30,8 +31,10 @@ interface GameState {
   hasRolled: boolean
   rolling: boolean
   selectedSpace: Space | null
+  specialSpace: Space | null
   gameLog: string[]
   awaitingPropertyDecision: boolean
+  awaitingSpecialSpace: boolean
 }
 
 export default function MonopolyGame() {
@@ -44,8 +47,10 @@ export default function MonopolyGame() {
     hasRolled: false,
     rolling: false,
     selectedSpace: null,
+    specialSpace: null,
     gameLog: [],
     awaitingPropertyDecision: false,
+    awaitingSpecialSpace: false,
   })
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -80,6 +85,8 @@ export default function MonopolyGame() {
         hasRolled: false,
         diceValues: getRandomInitialDice(),
         awaitingPropertyDecision: false,
+        awaitingSpecialSpace: false,
+        specialSpace: null,
       }
     })
   }, [addLog])
@@ -112,6 +119,15 @@ export default function MonopolyGame() {
 
       // Check if this is a purchasable space that is unowned
       const isPurchasable = landedSpace.type === "property" || landedSpace.type === "railroad" || landedSpace.type === "utility"
+      
+      // Check if this is a special space that shows a modal
+      const isSpecialSpace = landedSpace.type === "chance" || 
+        landedSpace.type === "community-chest" || 
+        landedSpace.type === "go" || 
+        landedSpace.type === "jail" || 
+        landedSpace.type === "free-parking" || 
+        landedSpace.type === "go-to-jail" || 
+        landedSpace.type === "tax"
 
       setGameState((prev) => {
         const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
@@ -143,6 +159,9 @@ export default function MonopolyGame() {
           // Auto-show buy modal if it's a purchasable unowned space
           selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
           awaitingPropertyDecision: isPurchasable && isUnowned,
+          // Show special space modal for non-purchasable special spaces
+          specialSpace: isSpecialSpace ? landedSpace : null,
+          awaitingSpecialSpace: isSpecialSpace,
         }
       })
 
@@ -165,14 +184,14 @@ export default function MonopolyGame() {
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
       }
 
-      // Check if we need to wait for property decision or auto-end turn
+      // Check if we need to wait for modal interaction or auto-end turn
       setGameState((prev) => {
         const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
-        if (isPurchasable && isUnowned) {
-          // Player needs to decide on the property - turn will end when modal closes
+        if ((isPurchasable && isUnowned) || isSpecialSpace) {
+          // Player needs to interact with a modal - turn will end when modal closes
           return prev
         } else {
-          // Auto-end turn after a short delay
+          // Auto-end turn after a short delay (for owned properties)
           endTurnTimeoutRef.current = setTimeout(() => {
             handleEndTurn()
           }, 1500)
@@ -197,6 +216,18 @@ export default function MonopolyGame() {
         }, 500)
       }
       return { ...prev, selectedSpace: null, awaitingPropertyDecision: false }
+    })
+  }, [handleEndTurn])
+
+  const handleCloseSpecialCard = useCallback(() => {
+    setGameState((prev) => {
+      // End the turn after closing the special space modal
+      if (prev.awaitingSpecialSpace) {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 500)
+      }
+      return { ...prev, specialSpace: null, awaitingSpecialSpace: false }
     })
   }, [handleEndTurn])
 
@@ -318,6 +349,14 @@ export default function MonopolyGame() {
           onClose={handleCloseCard}
           onBuy={handleBuyProperty}
           canBuy={canBuySelectedSpace}
+        />
+      )}
+
+      {/* Special Space Modal */}
+      {gameState.specialSpace && (
+        <SpecialSpaceCard
+          space={gameState.specialSpace}
+          onClose={handleCloseSpecialCard}
         />
       )}
     </main>
