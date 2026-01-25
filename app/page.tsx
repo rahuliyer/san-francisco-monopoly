@@ -20,6 +20,9 @@ import {
   getSpacesByColorGroup,
 } from "@/lib/game-data"
 
+// Duration to wait for dice animation to complete after rolling stops (ms)
+const DICE_ANIMATION_DURATION = 700
+
 // Generate random initial dice values (for display only)
 function getRandomInitialDice(): [number, number] {
   return [
@@ -166,7 +169,6 @@ export default function MonopolyGame() {
             landedSpace.type === "tax"
 
           setGameState((prev) => {
-            const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
             const updatedPlayers = [...prev.players]
             updatedPlayers[prev.currentPlayerIndex] = {
               ...updatedPlayers[prev.currentPlayerIndex],
@@ -194,12 +196,22 @@ export default function MonopolyGame() {
               diceValues: dice,
               hasRolled: true,
               rolling: false,
-              selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
-              awaitingPropertyDecision: isPurchasable && isUnowned,
-              specialSpace: isSpecialSpace ? landedSpace : null,
-              awaitingSpecialSpace: isSpecialSpace,
             }
           })
+
+          // Delay showing dialogs until after dice animation completes
+          setTimeout(() => {
+            setGameState((prev) => {
+              const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+              return {
+                ...prev,
+                selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
+                awaitingPropertyDecision: isPurchasable && isUnowned,
+                specialSpace: isSpecialSpace ? landedSpace : null,
+                awaitingSpecialSpace: isSpecialSpace,
+              }
+            })
+          }, DICE_ANIMATION_DURATION)
 
           addLog(`${currentPlayer.name} rolled doubles (${dice[0]} + ${dice[1]}) and escaped Alcatraz!`)
           addLog(`Landed on ${landedSpace.name}`)
@@ -273,17 +285,20 @@ export default function MonopolyGame() {
           }
 
           // Check if we need to wait for modal interaction or auto-end turn
-          setGameState((prev) => {
-            const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
-            if ((isPurchasable && isUnowned) || isSpecialSpace) {
-              return prev
-            } else {
-              endTurnTimeoutRef.current = setTimeout(() => {
-                handleEndTurn()
-              }, 1500)
-              return prev
-            }
-          })
+          // We need to check after the dialog delay
+          setTimeout(() => {
+            setGameState((prev) => {
+              const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+              if ((isPurchasable && isUnowned) || isSpecialSpace) {
+                return prev
+              } else {
+                endTurnTimeoutRef.current = setTimeout(() => {
+                  handleEndTurn()
+                }, 1500)
+                return prev
+              }
+            })
+          }, DICE_ANIMATION_DURATION + 50) // Slightly after dialog appears
         } else {
           // Player didn't roll doubles - still in jail
           const newJailTurns = currentPlayer.jailTurns + 1
@@ -352,6 +367,10 @@ export default function MonopolyGame() {
         landedSpace.type === "go-to-jail" || 
         landedSpace.type === "tax"
 
+      // Calculate rent and update player state, but don't show dialog yet
+      let calculatedRentAmount: number | undefined = undefined
+      let calculatedIsOwnProperty = false
+
       setGameState((prev) => {
         const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
         const ownerId = prev.propertyOwners[landedSpace.id]
@@ -410,19 +429,9 @@ export default function MonopolyGame() {
           }
         }
 
-        // Determine what modal to show
-        let selectedSpace: Space | null = null
-        let awaitingPropertyDecision = false
-        
-        if (isPurchasable) {
-          if (isUnowned) {
-            selectedSpace = landedSpace
-            awaitingPropertyDecision = true
-          } else if (isOwnProperty || isOtherPlayerProperty) {
-            selectedSpace = landedSpace
-            awaitingPropertyDecision = true
-          }
-        }
+        // Store calculated values for later use
+        calculatedRentAmount = rentAmount
+        calculatedIsOwnProperty = isPurchasable && isOwnProperty
 
         return {
           ...prev,
@@ -430,15 +439,48 @@ export default function MonopolyGame() {
           diceValues: dice,
           hasRolled: true,
           rolling: false,
-          selectedSpace,
-          awaitingPropertyDecision,
-          // Show special space modal for non-purchasable special spaces
-          specialSpace: isSpecialSpace ? landedSpace : null,
-          awaitingSpecialSpace: isSpecialSpace,
-          isOwnProperty: isPurchasable && isOwnProperty,
+          // Don't show dialog yet - wait for dice animation to complete
+          selectedSpace: null,
+          awaitingPropertyDecision: false,
+          specialSpace: null,
+          awaitingSpecialSpace: false,
+          isOwnProperty: calculatedIsOwnProperty,
           rentPaid: rentAmount,
         }
       })
+
+      // Delay showing dialogs until after dice animation completes
+      setTimeout(() => {
+        setGameState((prev) => {
+          const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+          const ownerId = prev.propertyOwners[landedSpace.id]
+          const isOwnProperty = ownerId === prev.currentPlayerIndex
+          const isOtherPlayerProperty = ownerId !== undefined && !isOwnProperty
+
+          // Determine what modal to show
+          let selectedSpace: Space | null = null
+          let awaitingPropertyDecision = false
+          
+          if (isPurchasable) {
+            if (isUnowned) {
+              selectedSpace = landedSpace
+              awaitingPropertyDecision = true
+            } else if (isOwnProperty || isOtherPlayerProperty) {
+              selectedSpace = landedSpace
+              awaitingPropertyDecision = true
+            }
+          }
+
+          return {
+            ...prev,
+            selectedSpace,
+            awaitingPropertyDecision,
+            // Show special space modal for non-purchasable special spaces
+            specialSpace: isSpecialSpace ? landedSpace : null,
+            awaitingSpecialSpace: isSpecialSpace,
+          }
+        })
+      }, DICE_ANIMATION_DURATION)
 
       // Log the roll
       let logMessage = `${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} = ${total}`
@@ -533,18 +575,21 @@ export default function MonopolyGame() {
       }
 
       // Check if we need to wait for modal interaction or auto-end turn
-      setGameState((prev) => {
-        if (prev.awaitingPropertyDecision || prev.awaitingSpecialSpace) {
-          // Player needs to interact with a modal - turn will end when modal closes
-          return prev
-        } else {
-          // Auto-end turn after a short delay (for non-interactive spaces)
-          endTurnTimeoutRef.current = setTimeout(() => {
-            handleEndTurn()
-          }, 1500)
-          return prev
-        }
-      })
+      // We need to check after the dialog delay
+      setTimeout(() => {
+        setGameState((prev) => {
+          if (prev.awaitingPropertyDecision || prev.awaitingSpecialSpace) {
+            // Player needs to interact with a modal - turn will end when modal closes
+            return prev
+          } else {
+            // Auto-end turn after a short delay (for non-interactive spaces)
+            endTurnTimeoutRef.current = setTimeout(() => {
+              handleEndTurn()
+            }, 1500)
+            return prev
+          }
+        })
+      }, DICE_ANIMATION_DURATION + 50) // Slightly after dialog appears
     }, 800)
   }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
