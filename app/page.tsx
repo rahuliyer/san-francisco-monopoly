@@ -43,6 +43,7 @@ interface GameState {
   awaitingSpecialSpace: boolean
   isOwnProperty: boolean
   rentPaid: number | undefined
+  viewingPropertiesForPlayer: Player | null
 }
 
 export default function MonopolyGame() {
@@ -62,6 +63,7 @@ export default function MonopolyGame() {
     awaitingSpecialSpace: false,
     isOwnProperty: false,
     rentPaid: undefined,
+    viewingPropertiesForPlayer: null,
   })
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -639,6 +641,14 @@ export default function MonopolyGame() {
     }, 500)
   }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
+  const handleViewPlayerProperties = useCallback((player: Player) => {
+    setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
+  }, [])
+
+  const handleClosePlayerProperties = useCallback(() => {
+    setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: null }))
+  }, [])
+
   if (!gameStarted) {
     return <GameSetup onStartGame={handleStartGame} />
   }
@@ -660,21 +670,9 @@ export default function MonopolyGame() {
 
   return (
     <main className="min-h-screen bg-emerald-100 p-4">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-center">
-        {/* Left sidebar - Players */}
-        <div className="flex w-full max-w-xs flex-col gap-3 lg:order-1">
-          {gameState.players.slice(0, 2).map((player) => (
-            <PlayerPanel
-              key={player.id}
-              player={player}
-              isCurrentTurn={player.id === currentPlayer.id}
-              propertyOwners={gameState.propertyOwners}
-            />
-          ))}
-        </div>
-
+      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6">
         {/* Center - Game Board */}
-        <div className="overflow-auto lg:order-2">
+        <div className="overflow-auto">
           <GameBoard
             players={gameState.players}
             onSpaceClick={handleSpaceClick}
@@ -682,40 +680,124 @@ export default function MonopolyGame() {
           />
         </div>
 
-        {/* Right sidebar - Controls and more players */}
-        <div className="flex w-full max-w-xs flex-col gap-3 lg:order-3">
-          <GameControls
-            diceValues={gameState.diceValues}
-            rolling={gameState.rolling}
-            hasRolled={gameState.hasRolled}
-            onRoll={handleRoll}
-            currentPlayerName={currentPlayer.name}
-            isInJail={currentPlayer.inJail}
-            jailTurns={currentPlayer.jailTurns}
-            onPayJailFee={handlePayJailFee}
-            canAffordJailFee={currentPlayer.money >= 50}
-          />
-
-          {gameState.players.slice(2).map((player) => (
+        {/* Player Panels - Below the board */}
+        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 md:grid-cols-4">
+          {gameState.players.map((player) => (
             <PlayerPanel
               key={player.id}
               player={player}
               isCurrentTurn={player.id === currentPlayer.id}
               propertyOwners={gameState.propertyOwners}
+              onPropertiesClick={() => handleViewPlayerProperties(player)}
             />
           ))}
+        </div>
 
-          {/* Game Log */}
-          <div className="rounded-lg bg-white p-3 shadow-md">
-            <h3 className="mb-2 text-sm font-semibold text-stone-700">Game Log</h3>
-            <div className="max-h-32 space-y-1 overflow-y-auto text-xs text-stone-600">
-              {gameState.gameLog.map((log, i) => (
-                <p key={i}>{log}</p>
-              ))}
+        {/* Game Controls - Below the player panels */}
+        <GameControls
+          diceValues={gameState.diceValues}
+          rolling={gameState.rolling}
+          hasRolled={gameState.hasRolled}
+          onRoll={handleRoll}
+          currentPlayerName={currentPlayer.name}
+          isInJail={currentPlayer.inJail}
+          jailTurns={currentPlayer.jailTurns}
+          onPayJailFee={handlePayJailFee}
+          canAffordJailFee={currentPlayer.money >= 50}
+        />
+      </div>
+
+      {/* Player Properties Modal */}
+      {gameState.viewingPropertiesForPlayer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-stone-800">
+                {gameState.viewingPropertiesForPlayer.name}&apos;s Properties
+              </h2>
+              <button
+                onClick={handleClosePlayerProperties}
+                className="rounded-full p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
+            {(() => {
+              const ownedProperties = BOARD_SPACES.filter(
+                (space) => gameState.propertyOwners[space.id] === gameState.viewingPropertiesForPlayer!.id
+              )
+              if (ownedProperties.length === 0) {
+                return (
+                  <p className="text-center text-stone-500">No properties owned yet.</p>
+                )
+              }
+              // Group properties by color
+              const groupedProperties: Record<string, typeof ownedProperties> = {}
+              ownedProperties.forEach((prop) => {
+                const group = prop.colorGroup || prop.type
+                if (!groupedProperties[group]) {
+                  groupedProperties[group] = []
+                }
+                groupedProperties[group].push(prop)
+              })
+              return (
+                <div className="space-y-4">
+                  {Object.entries(groupedProperties).map(([group, properties]) => (
+                    <div key={group}>
+                      <h3 className="mb-2 text-sm font-semibold capitalize text-stone-600">
+                        {group.replace("-", " ")}
+                      </h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {properties.map((prop) => (
+                          <button
+                            key={prop.id}
+                            onClick={() => {
+                              handleClosePlayerProperties()
+                              handleSpaceClick(prop)
+                            }}
+                            className="flex items-center gap-3 rounded-lg border border-stone-200 p-3 text-left transition-colors hover:bg-stone-50"
+                          >
+                            <div
+                              className="h-8 w-4 rounded"
+                              style={{
+                                backgroundColor:
+                                  prop.colorGroup === "railroad"
+                                    ? "#4A4A4A"
+                                    : prop.colorGroup === "utility"
+                                      ? "#D3D3D3"
+                                      : prop.colorGroup
+                                        ? {
+                                            brown: "#8B4513",
+                                            "light-blue": "#87CEEB",
+                                            pink: "#FF69B4",
+                                            orange: "#FFA500",
+                                            red: "#FF0000",
+                                            yellow: "#FFD700",
+                                            green: "#228B22",
+                                            "dark-blue": "#00008B",
+                                          }[prop.colorGroup]
+                                        : "#ccc",
+                              }}
+                            />
+                            <div>
+                              <p className="font-medium text-stone-800">{prop.name}</p>
+                              {prop.price && (
+                                <p className="text-sm text-stone-500">${prop.price}</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Property Card Modal */}
       {gameState.selectedSpace && (
