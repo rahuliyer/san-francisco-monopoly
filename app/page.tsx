@@ -40,7 +40,7 @@ function calculateUnmortgageCost(mortgageValue: number): number {
   return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
 }
 
-function calculateRepairsCost(
+export function calculateRepairsCost(
   playerIndex: number,
   propertyOwners: Record<number, number>,
   propertyHouses: Record<number, number>,
