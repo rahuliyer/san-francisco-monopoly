@@ -4,6 +4,7 @@ import Image from "next/image"
 import type { SpaceType } from "@/lib/game-data"
 import { Space, Player, COLOR_MAP } from "@/lib/game-data"
 import { cn } from "@/lib/utils"
+import { PlayerToken3D } from "@/components/player-token-3d"
 
 interface BoardSpaceProps {
   space: Space
@@ -108,14 +109,13 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
       {playersOnSpace.length > 0 && (
         <div className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 gap-0.5">
           {playersOnSpace.map((player) => (
-            <div
+            <PlayerToken3D
               key={player.id}
-              className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] shadow-md border border-white/50"
-              style={{ backgroundColor: player.color }}
-              title={player.name}
-            >
-              {player.token}
-            </div>
+              icon={player.token}
+              color={player.color}
+              name={player.name}
+              size="xs"
+            />
           ))}
         </div>
       )}
