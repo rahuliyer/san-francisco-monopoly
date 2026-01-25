@@ -136,3 +136,69 @@ export function calculateRent(space: Space, houses: number, ownsAllInGroup: bool
   }
   return space.rent[houses] || space.rent[0]
 }
+
+// Card types for Chance and Community Chest
+export type CardEffect = 
+  | { type: 'collect'; amount: number }
+  | { type: 'pay'; amount: number }
+  | { type: 'advance'; position: number }
+  | { type: 'advance-to-go' }
+  | { type: 'go-to-jail' }
+  | { type: 'collect-from-players'; amount: number }
+  | { type: 'pay-to-players'; amount: number }
+  | { type: 'repairs'; houseAmount: number; hotelAmount: number }
+  | { type: 'go-back'; spaces: number }
+
+export interface GameCard {
+  id: number
+  text: string
+  effect: CardEffect
+}
+
+export const CHANCE_CARDS: GameCard[] = [
+  { id: 1, text: "Take the F-Line streetcar to Fisherman's Wharf (GO). Collect $200.", effect: { type: 'advance-to-go' } },
+  { id: 2, text: "Your Victorian in Sea Cliff appreciated! Advance to Sea Cliff.", effect: { type: 'advance', position: 39 } },
+  { id: 3, text: "Invited to a billionaire's party in Pacific Heights. Advance there now.", effect: { type: 'advance', position: 29 } },
+  { id: 4, text: "Pride Parade day! Head to the Castro to celebrate.", effect: { type: 'advance', position: 23 } },
+  { id: 5, text: "Hop on BART to avoid the traffic. Advance to BART station.", effect: { type: 'advance', position: 15 } },
+  { id: 6, text: "Tourist wants a Cable Car photo with you. Ride to Cable Car.", effect: { type: 'advance', position: 35 } },
+  { id: 7, text: "Your app got featured on Product Hunt! Collect $50.", effect: { type: 'collect', amount: 50 } },
+  { id: 8, text: "Your AI startup got acquired by a tech giant! Collect $150.", effect: { type: 'collect', amount: 150 } },
+  { id: 9, text: "Caught stealing sourdough starter. Go directly to Alcatraz!", effect: { type: 'go-to-jail' } },
+  { id: 10, text: "Earthquake retrofit required on all properties: Pay $25 per house, $100 per hotel.", effect: { type: 'repairs', houseAmount: 25, hotelAmount: 100 } },
+  { id: 11, text: "SFMTA parking ticket on your Painted Lady. Pay $15.", effect: { type: 'pay', amount: 15 } },
+  { id: 12, text: "Uber surge pricing! Walk back 3 spaces instead.", effect: { type: 'go-back', spaces: 3 } },
+  { id: 13, text: "Completed the Bay to Breakers race! Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 14, text: "Your Tartine croissant recipe went viral on TikTok! Collect $200.", effect: { type: 'collect', amount: 200 } },
+  { id: 15, text: "FasTrak toll violation on the Golden Gate Bridge. Pay $50.", effect: { type: 'pay', amount: 50 } },
+  { id: 16, text: "Fogust is here! Escape to sunny Golden Gate Park.", effect: { type: 'advance', position: 20 } },
+]
+
+export const COMMUNITY_CHEST_CARDS: GameCard[] = [
+  { id: 1, text: "Free clam chowder in a bread bowl at Fisherman's Wharf! Advance to GO. Collect $200.", effect: { type: 'advance-to-go' } },
+  { id: 2, text: "Silicon Valley Bank error in your favor. Collect $200.", effect: { type: 'collect', amount: 200 } },
+  { id: 3, text: "UCSF Medical Center bill. Pay $50.", effect: { type: 'pay', amount: 50 } },
+  { id: 4, text: "Sold Dungeness crab at the Wharf. Collect $50.", effect: { type: 'collect', amount: 50 } },
+  { id: 5, text: "Tried to escape Alcatraz tour early. Go directly to Alcatraz!", effect: { type: 'go-to-jail' } },
+  { id: 6, text: "Warriors win the NBA Championship! The city celebrates. Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 7, text: "California state tax refund. Collect $20.", effect: { type: 'collect', amount: 20 } },
+  { id: 8, text: "Throwing a rooftop party in SOMA! Collect $10 from each player.", effect: { type: 'collect-from-players', amount: 10 } },
+  { id: 9, text: "Your Dolores Park rental income came through. Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 10, text: "Slipped on a steep hill in Nob Hill. Hospital fees: Pay $100.", effect: { type: 'pay', amount: 100 } },
+  { id: 11, text: "SF private school tuition. Pay $50.", effect: { type: 'pay', amount: 50 } },
+  { id: 12, text: "Consulting gig for a Salesforce Tower tenant. Collect $25.", effect: { type: 'collect', amount: 25 } },
+  { id: 13, text: "Victorian home maintenance on your Painted Ladies: Pay $40 per house, $115 per hotel.", effect: { type: 'repairs', houseAmount: 40, hotelAmount: 115 } },
+  { id: 14, text: "Won second place in the Boudin sourdough bake-off. Collect $10.", effect: { type: 'collect', amount: 10 } },
+  { id: 15, text: "Inherited a rent-controlled apartment in the Mission! Collect $100.", effect: { type: 'collect', amount: 100 } },
+  { id: 16, text: "Lost your Clipper card. Buy a new MUNI pass: Pay $50.", effect: { type: 'pay', amount: 50 } },
+]
+
+export function drawChanceCard(): GameCard {
+  const index = Math.floor(Math.random() * CHANCE_CARDS.length)
+  return CHANCE_CARDS[index]
+}
+
+export function drawCommunityChestCard(): GameCard {
+  const index = Math.floor(Math.random() * COMMUNITY_CHEST_CARDS.length)
+  return COMMUNITY_CHEST_CARDS[index]
+}

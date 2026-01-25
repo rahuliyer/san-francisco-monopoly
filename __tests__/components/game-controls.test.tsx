@@ -3,11 +3,10 @@ import { GameControls } from '@/components/game-controls'
 
 describe('GameControls component', () => {
   const defaultProps = {
-    diceValues: [0, 0] as [number, number],
+    diceValues: [3, 4] as [number, number],
     rolling: false,
     hasRolled: false,
     onRoll: jest.fn(),
-    onEndTurn: jest.fn(),
     currentPlayerName: 'Alice',
   }
 
@@ -23,11 +22,6 @@ describe('GameControls component', () => {
   it('should render Roll Dice button', () => {
     render(<GameControls {...defaultProps} />)
     expect(screen.getByRole('button', { name: /roll dice/i })).toBeInTheDocument()
-  })
-
-  it('should render End Turn button', () => {
-    render(<GameControls {...defaultProps} />)
-    expect(screen.getByRole('button', { name: /end turn/i })).toBeInTheDocument()
   })
 
   it('should enable Roll Dice button when not rolled and not rolling', () => {
@@ -53,18 +47,6 @@ describe('GameControls component', () => {
     expect(screen.getByRole('button', { name: /rolling/i })).toBeInTheDocument()
   })
 
-  it('should disable End Turn button when not rolled', () => {
-    render(<GameControls {...defaultProps} hasRolled={false} />)
-    const endTurnButton = screen.getByRole('button', { name: /end turn/i })
-    expect(endTurnButton).toBeDisabled()
-  })
-
-  it('should enable End Turn button after rolling', () => {
-    render(<GameControls {...defaultProps} hasRolled={true} diceValues={[3, 4]} />)
-    const endTurnButton = screen.getByRole('button', { name: /end turn/i })
-    expect(endTurnButton).not.toBeDisabled()
-  })
-
   it('should call onRoll when Roll Dice button is clicked', () => {
     const onRoll = jest.fn()
     render(<GameControls {...defaultProps} onRoll={onRoll} />)
@@ -73,26 +55,18 @@ describe('GameControls component', () => {
     expect(onRoll).toHaveBeenCalledTimes(1)
   })
 
-  it('should call onEndTurn when End Turn button is clicked', () => {
-    const onEndTurn = jest.fn()
-    render(<GameControls {...defaultProps} hasRolled={true} diceValues={[3, 4]} onEndTurn={onEndTurn} />)
-    
-    fireEvent.click(screen.getByRole('button', { name: /end turn/i }))
-    expect(onEndTurn).toHaveBeenCalledTimes(1)
-  })
-
-  it('should display rolled total when dice have values', () => {
+  it('should display rolled total when hasRolled is true', () => {
     render(<GameControls {...defaultProps} diceValues={[3, 4]} hasRolled={true} />)
     expect(screen.getByText('Rolled: 7')).toBeInTheDocument()
   })
 
-  it('should not display rolled total when dice values are 0', () => {
-    render(<GameControls {...defaultProps} diceValues={[0, 0]} />)
+  it('should not display rolled total when hasRolled is false', () => {
+    render(<GameControls {...defaultProps} diceValues={[3, 4]} hasRolled={false} />)
     expect(screen.queryByText(/rolled:/i)).not.toBeInTheDocument()
   })
 
   it('should not display rolled total while rolling', () => {
-    render(<GameControls {...defaultProps} diceValues={[3, 4]} rolling={true} />)
+    render(<GameControls {...defaultProps} diceValues={[3, 4]} rolling={true} hasRolled={true} />)
     expect(screen.queryByText(/rolled:/i)).not.toBeInTheDocument()
   })
 
@@ -104,7 +78,7 @@ describe('GameControls component', () => {
     expect(screen.getByText("Charlie's Turn")).toBeInTheDocument()
   })
 
-  it('should render dice component', () => {
+  it('should render dice component with values', () => {
     render(<GameControls {...defaultProps} diceValues={[3, 4]} />)
     // Check for dice container
     const diceContainer = document.querySelector('.flex.gap-3')

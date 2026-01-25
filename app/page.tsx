@@ -1,18 +1,30 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { GameSetup } from "@/components/game-setup"
 import { GameBoard } from "@/components/game-board"
 import { PlayerPanel } from "@/components/player-panel"
 import { GameControls } from "@/components/game-controls"
 import { PropertyCard } from "@/components/property-card"
+import { SpecialSpaceCard } from "@/components/special-space-card"
 import {
   Player,
   Space,
+  GameCard,
   BOARD_SPACES,
   createPlayer,
   rollDice,
+  drawChanceCard,
+  drawCommunityChestCard,
 } from "@/lib/game-data"
+
+// Generate random initial dice values (for display only)
+function getRandomInitialDice(): [number, number] {
+  return [
+    Math.floor(Math.random() * 6) + 1,
+    Math.floor(Math.random() * 6) + 1,
+  ]
+}
 
 interface GameState {
   players: Player[]
@@ -22,7 +34,11 @@ interface GameState {
   hasRolled: boolean
   rolling: boolean
   selectedSpace: Space | null
+  specialSpace: Space | null
+  drawnCard: GameCard | null
   gameLog: string[]
+  awaitingPropertyDecision: boolean
+  awaitingSpecialSpace: boolean
 }
 
 export default function MonopolyGame() {
@@ -31,12 +47,17 @@ export default function MonopolyGame() {
     players: [],
     currentPlayerIndex: 0,
     propertyOwners: {},
-    diceValues: [0, 0] as [number, number],
+    diceValues: getRandomInitialDice(),
     hasRolled: false,
     rolling: false,
     selectedSpace: null,
+    specialSpace: null,
+    drawnCard: null,
     gameLog: [],
+    awaitingPropertyDecision: false,
+    awaitingSpecialSpace: false,
   })
+  const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
     const players = playerSetups.map((setup, i) =>
@@ -57,7 +78,32 @@ export default function MonopolyGame() {
     }))
   }, [])
 
+  const handleEndTurn = useCallback(() => {
+    setGameState((prev) => {
+      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
+      const nextPlayerName = prev.players[nextPlayerIndex].name
+      // Schedule the log message after state update
+      setTimeout(() => addLog(`${nextPlayerName}'s turn`), 0)
+      return {
+        ...prev,
+        currentPlayerIndex: nextPlayerIndex,
+        hasRolled: false,
+        diceValues: getRandomInitialDice(),
+        awaitingPropertyDecision: false,
+        awaitingSpecialSpace: false,
+        specialSpace: null,
+        drawnCard: null,
+      }
+    })
+  }, [addLog])
+
   const handleRoll = useCallback(() => {
+    // Clear any pending end turn timeout
+    if (endTurnTimeoutRef.current) {
+      clearTimeout(endTurnTimeoutRef.current)
+      endTurnTimeoutRef.current = null
+    }
+
     setGameState((prev) => ({ ...prev, rolling: true }))
 
     // Simulate rolling animation
@@ -77,7 +123,20 @@ export default function MonopolyGame() {
 
       const landedSpace = BOARD_SPACES[newPosition]
 
+      // Check if this is a purchasable space that is unowned
+      const isPurchasable = landedSpace.type === "property" || landedSpace.type === "railroad" || landedSpace.type === "utility"
+      
+      // Check if this is a special space that shows a modal
+      const isSpecialSpace = landedSpace.type === "chance" || 
+        landedSpace.type === "community-chest" || 
+        landedSpace.type === "go" || 
+        landedSpace.type === "jail" || 
+        landedSpace.type === "free-parking" || 
+        landedSpace.type === "go-to-jail" || 
+        landedSpace.type === "tax"
+
       setGameState((prev) => {
+        const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
         const updatedPlayers = [...prev.players]
         updatedPlayers[prev.currentPlayerIndex] = {
           ...updatedPlayers[prev.currentPlayerIndex],
@@ -103,6 +162,12 @@ export default function MonopolyGame() {
           diceValues: dice,
           hasRolled: true,
           rolling: false,
+          // Auto-show buy modal if it's a purchasable unowned space
+          selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
+          awaitingPropertyDecision: isPurchasable && isUnowned,
+          // Show special space modal for non-purchasable special spaces
+          specialSpace: isSpecialSpace ? landedSpace : null,
+          awaitingSpecialSpace: isSpecialSpace,
         }
       })
 
@@ -123,22 +188,85 @@ export default function MonopolyGame() {
           return { ...prev, players: updatedPlayers }
         })
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
+      } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
+        // Draw a card
+        const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
+        addLog(`Drew: ${card.text}`)
+        
+        // Apply card effect
+        setGameState((prev) => {
+          const updatedPlayers = [...prev.players]
+          const playerIndex = prev.currentPlayerIndex
+          
+          switch (card.effect.type) {
+            case 'collect':
+              updatedPlayers[playerIndex].money += card.effect.amount
+              break
+            case 'pay':
+              updatedPlayers[playerIndex].money -= card.effect.amount
+              break
+            case 'advance-to-go':
+              updatedPlayers[playerIndex].position = 0
+              updatedPlayers[playerIndex].money += 200
+              break
+            case 'advance':
+              // Check if we pass GO
+              if (card.effect.position < updatedPlayers[playerIndex].position) {
+                updatedPlayers[playerIndex].money += 200
+              }
+              updatedPlayers[playerIndex].position = card.effect.position
+              break
+            case 'go-to-jail':
+              updatedPlayers[playerIndex].position = 10
+              updatedPlayers[playerIndex].inJail = true
+              updatedPlayers[playerIndex].jailTurns = 0
+              break
+            case 'go-back':
+              updatedPlayers[playerIndex].position = (updatedPlayers[playerIndex].position - card.effect.spaces + 40) % 40
+              break
+            case 'collect-from-players':
+              // Collect from each other player
+              const collectAmount = card.effect.amount * (prev.players.length - 1)
+              updatedPlayers[playerIndex].money += collectAmount
+              for (let i = 0; i < updatedPlayers.length; i++) {
+                if (i !== playerIndex) {
+                  updatedPlayers[i].money -= card.effect.amount
+                }
+              }
+              break
+            case 'pay-to-players':
+              // Pay each other player
+              const payAmount = card.effect.amount * (prev.players.length - 1)
+              updatedPlayers[playerIndex].money -= payAmount
+              for (let i = 0; i < updatedPlayers.length; i++) {
+                if (i !== playerIndex) {
+                  updatedPlayers[i].money += card.effect.amount
+                }
+              }
+              break
+            // Note: 'repairs' effect would need house/hotel tracking to implement fully
+          }
+          
+          return { ...prev, players: updatedPlayers, drawnCard: card }
+        })
       }
-    }, 800)
-  }, [gameState.players, gameState.currentPlayerIndex, addLog])
 
-  const handleEndTurn = useCallback(() => {
-    setGameState((prev) => {
-      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
-      return {
-        ...prev,
-        currentPlayerIndex: nextPlayerIndex,
-        hasRolled: false,
-        diceValues: [0, 0] as [number, number],
-      }
-    })
-    addLog(`${gameState.players[(gameState.currentPlayerIndex + 1) % gameState.players.length].name}'s turn`)
-  }, [gameState.players, gameState.currentPlayerIndex, addLog])
+      // Check if we need to wait for modal interaction or auto-end turn
+      setGameState((prev) => {
+        const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+        if ((isPurchasable && isUnowned) || isSpecialSpace) {
+          // Player needs to interact with a modal - turn will end when modal closes
+          return prev
+        } else {
+          // Auto-end turn after a short delay (for owned properties)
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleEndTurn()
+          }, 1500)
+          return prev
+        }
+      })
+    }, 800)
+  }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
   const handleSpaceClick = useCallback((space: Space) => {
     if (space.type === "property" || space.type === "railroad" || space.type === "utility") {
@@ -147,8 +275,28 @@ export default function MonopolyGame() {
   }, [])
 
   const handleCloseCard = useCallback(() => {
-    setGameState((prev) => ({ ...prev, selectedSpace: null }))
-  }, [])
+    setGameState((prev) => {
+      // If we were awaiting a property decision, end the turn after closing
+      if (prev.awaitingPropertyDecision) {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 500)
+      }
+      return { ...prev, selectedSpace: null, awaitingPropertyDecision: false }
+    })
+  }, [handleEndTurn])
+
+  const handleCloseSpecialCard = useCallback(() => {
+    setGameState((prev) => {
+      // End the turn after closing the special space modal
+      if (prev.awaitingSpecialSpace) {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 500)
+      }
+      return { ...prev, specialSpace: null, awaitingSpecialSpace: false }
+    })
+  }, [handleEndTurn])
 
   const handleBuyProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -175,10 +323,16 @@ export default function MonopolyGame() {
           [space.id]: prev.currentPlayerIndex,
         },
         selectedSpace: null,
+        awaitingPropertyDecision: false,
       }
     })
     addLog(`${currentPlayer.name} bought ${space.name} for $${space.price}`)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog])
+    
+    // Auto-end turn after buying
+    endTurnTimeoutRef.current = setTimeout(() => {
+      handleEndTurn()
+    }, 500)
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
   if (!gameStarted) {
     return <GameSetup onStartGame={handleStartGame} />
@@ -230,7 +384,6 @@ export default function MonopolyGame() {
             rolling={gameState.rolling}
             hasRolled={gameState.hasRolled}
             onRoll={handleRoll}
-            onEndTurn={handleEndTurn}
             currentPlayerName={currentPlayer.name}
           />
 
@@ -263,6 +416,15 @@ export default function MonopolyGame() {
           onClose={handleCloseCard}
           onBuy={handleBuyProperty}
           canBuy={canBuySelectedSpace}
+        />
+      )}
+
+      {/* Special Space Modal */}
+      {gameState.specialSpace && (
+        <SpecialSpaceCard
+          space={gameState.specialSpace}
+          onClose={handleCloseSpecialCard}
+          drawnCard={gameState.drawnCard}
         />
       )}
     </main>

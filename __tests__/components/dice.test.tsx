@@ -33,13 +33,13 @@ describe('Dice component', () => {
 
   it('should apply rolling animation when rolling is true', () => {
     render(<Dice values={[3, 4]} rolling={true} />)
-    const animatedDice = document.querySelectorAll('.animate-bounce')
+    const animatedDice = document.querySelectorAll('.dice-rolling')
     expect(animatedDice).toHaveLength(2)
   })
 
   it('should not apply rolling animation when rolling is false', () => {
     render(<Dice values={[3, 4]} rolling={false} />)
-    const animatedDice = document.querySelectorAll('.animate-bounce')
+    const animatedDice = document.querySelectorAll('.dice-rolling')
     expect(animatedDice).toHaveLength(0)
   })
 

@@ -8,7 +8,6 @@ interface GameControlsProps {
   rolling: boolean
   hasRolled: boolean
   onRoll: () => void
-  onEndTurn: () => void
   currentPlayerName: string
 }
 
@@ -17,7 +16,6 @@ export function GameControls({
   rolling,
   hasRolled,
   onRoll,
-  onEndTurn,
   currentPlayerName,
 }: GameControlsProps) {
   return (
@@ -28,28 +26,19 @@ export function GameControls({
 
       <Dice values={diceValues} rolling={rolling} />
 
-      {diceValues[0] > 0 && !rolling && (
+      {hasRolled && !rolling && (
         <p className="text-lg font-bold text-stone-800">
           Rolled: {diceValues[0] + diceValues[1]}
         </p>
       )}
 
-      <div className="flex gap-2">
-        <Button
-          onClick={onRoll}
-          disabled={hasRolled || rolling}
-          className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50"
-        >
-          {rolling ? "Rolling..." : "Roll Dice"}
-        </Button>
-        <Button
-          onClick={onEndTurn}
-          disabled={!hasRolled || rolling}
-          variant="outline"
-        >
-          End Turn
-        </Button>
-      </div>
+      <Button
+        onClick={onRoll}
+        disabled={hasRolled || rolling}
+        className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50"
+      >
+        {rolling ? "Rolling..." : "Roll Dice"}
+      </Button>
     </div>
   )
 }
