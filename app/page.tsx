@@ -105,6 +105,28 @@ export default function MonopolyGame() {
     })
   }, [addLog])
 
+  const handlePayJailFee = useCallback(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    
+    if (currentPlayer.money < 50) {
+      addLog(`${currentPlayer.name} cannot afford the $50 jail fee`)
+      return
+    }
+
+    setGameState((prev) => {
+      const updatedPlayers = [...prev.players]
+      updatedPlayers[prev.currentPlayerIndex] = {
+        ...updatedPlayers[prev.currentPlayerIndex],
+        money: updatedPlayers[prev.currentPlayerIndex].money - 50,
+        inJail: false,
+        jailTurns: 0,
+      }
+      return { ...prev, players: updatedPlayers }
+    })
+    
+    addLog(`${currentPlayer.name} paid $50 to leave Alcatraz`)
+  }, [gameState.players, gameState.currentPlayerIndex, addLog])
+
   const handleRoll = useCallback(() => {
     // Clear any pending end turn timeout
     if (endTurnTimeoutRef.current) {
@@ -118,8 +140,195 @@ export default function MonopolyGame() {
     setTimeout(() => {
       const dice = rollDice()
       const total = dice[0] + dice[1]
+      const isDoubles = dice[0] === dice[1]
       const currentPlayer = gameState.players[gameState.currentPlayerIndex]
 
+      // Handle jail logic
+      if (currentPlayer.inJail) {
+        if (isDoubles) {
+          // Player rolled doubles - they're free and can move!
+          let newPosition = currentPlayer.position + total
+          let passedGo = false
+
+          if (newPosition >= 40) {
+            newPosition = newPosition - 40
+            passedGo = true
+          }
+
+          const landedSpace = BOARD_SPACES[newPosition]
+          const isPurchasable = landedSpace.type === "property" || landedSpace.type === "railroad" || landedSpace.type === "utility"
+          const isSpecialSpace = landedSpace.type === "chance" || 
+            landedSpace.type === "community-chest" || 
+            landedSpace.type === "go" || 
+            landedSpace.type === "jail" || 
+            landedSpace.type === "free-parking" || 
+            landedSpace.type === "go-to-jail" || 
+            landedSpace.type === "tax"
+
+          setGameState((prev) => {
+            const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+            const updatedPlayers = [...prev.players]
+            updatedPlayers[prev.currentPlayerIndex] = {
+              ...updatedPlayers[prev.currentPlayerIndex],
+              position: newPosition,
+              money: passedGo
+                ? updatedPlayers[prev.currentPlayerIndex].money + 200
+                : updatedPlayers[prev.currentPlayerIndex].money,
+              inJail: false,
+              jailTurns: 0,
+            }
+
+            // Handle Go To Jail
+            if (landedSpace.type === "go-to-jail") {
+              updatedPlayers[prev.currentPlayerIndex] = {
+                ...updatedPlayers[prev.currentPlayerIndex],
+                position: 10,
+                inJail: true,
+                jailTurns: 0,
+              }
+            }
+
+            return {
+              ...prev,
+              players: updatedPlayers,
+              diceValues: dice,
+              hasRolled: true,
+              rolling: false,
+              selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
+              awaitingPropertyDecision: isPurchasable && isUnowned,
+              specialSpace: isSpecialSpace ? landedSpace : null,
+              awaitingSpecialSpace: isSpecialSpace,
+            }
+          })
+
+          addLog(`${currentPlayer.name} rolled doubles (${dice[0]} + ${dice[1]}) and escaped Alcatraz!`)
+          addLog(`Landed on ${landedSpace.name}`)
+
+          // Handle landing effects
+          if (landedSpace.type === "go-to-jail") {
+            addLog(`${currentPlayer.name} was sent back to Alcatraz!`)
+          } else if (landedSpace.type === "tax") {
+            const taxAmount = landedSpace.name === "Income Tax" ? 200 : 100
+            setGameState((prev) => {
+              const updatedPlayers = [...prev.players]
+              updatedPlayers[prev.currentPlayerIndex].money -= taxAmount
+              return { ...prev, players: updatedPlayers }
+            })
+            addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
+          } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
+            const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
+            addLog(`Drew: ${card.text}`)
+            
+            setGameState((prev) => {
+              const updatedPlayers = [...prev.players]
+              const playerIndex = prev.currentPlayerIndex
+              
+              switch (card.effect.type) {
+                case 'collect':
+                  updatedPlayers[playerIndex].money += card.effect.amount
+                  break
+                case 'pay':
+                  updatedPlayers[playerIndex].money -= card.effect.amount
+                  break
+                case 'advance-to-go':
+                  updatedPlayers[playerIndex].position = 0
+                  updatedPlayers[playerIndex].money += 200
+                  break
+                case 'advance':
+                  if (card.effect.position < updatedPlayers[playerIndex].position) {
+                    updatedPlayers[playerIndex].money += 200
+                  }
+                  updatedPlayers[playerIndex].position = card.effect.position
+                  break
+                case 'go-to-jail':
+                  updatedPlayers[playerIndex].position = 10
+                  updatedPlayers[playerIndex].inJail = true
+                  updatedPlayers[playerIndex].jailTurns = 0
+                  break
+                case 'go-back':
+                  updatedPlayers[playerIndex].position = (updatedPlayers[playerIndex].position - card.effect.spaces + 40) % 40
+                  break
+                case 'collect-from-players':
+                  const collectAmount = card.effect.amount * (prev.players.length - 1)
+                  updatedPlayers[playerIndex].money += collectAmount
+                  for (let i = 0; i < updatedPlayers.length; i++) {
+                    if (i !== playerIndex) {
+                      updatedPlayers[i].money -= card.effect.amount
+                    }
+                  }
+                  break
+                case 'pay-to-players':
+                  const payAmount = card.effect.amount * (prev.players.length - 1)
+                  updatedPlayers[playerIndex].money -= payAmount
+                  for (let i = 0; i < updatedPlayers.length; i++) {
+                    if (i !== playerIndex) {
+                      updatedPlayers[i].money += card.effect.amount
+                    }
+                  }
+                  break
+              }
+              
+              return { ...prev, players: updatedPlayers, drawnCard: card }
+            })
+          }
+
+          // Check if we need to wait for modal interaction or auto-end turn
+          setGameState((prev) => {
+            const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+            if ((isPurchasable && isUnowned) || isSpecialSpace) {
+              return prev
+            } else {
+              endTurnTimeoutRef.current = setTimeout(() => {
+                handleEndTurn()
+              }, 1500)
+              return prev
+            }
+          })
+        } else {
+          // Player didn't roll doubles - still in jail
+          const newJailTurns = currentPlayer.jailTurns + 1
+          
+          setGameState((prev) => {
+            const updatedPlayers = [...prev.players]
+            
+            if (newJailTurns >= 3) {
+              // Third turn without doubles - must pay $50 and move
+              updatedPlayers[prev.currentPlayerIndex] = {
+                ...updatedPlayers[prev.currentPlayerIndex],
+                money: updatedPlayers[prev.currentPlayerIndex].money - 50,
+                inJail: false,
+                jailTurns: 0,
+              }
+              addLog(`${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} (no doubles)`)
+              addLog(`${currentPlayer.name} paid $50 after 3 turns in Alcatraz`)
+            } else {
+              // Stay in jail, increment turn counter
+              updatedPlayers[prev.currentPlayerIndex] = {
+                ...updatedPlayers[prev.currentPlayerIndex],
+                jailTurns: newJailTurns,
+              }
+              addLog(`${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} (no doubles)`)
+              addLog(`${currentPlayer.name} remains in Alcatraz (${3 - newJailTurns} turns left)`)
+            }
+
+            return {
+              ...prev,
+              players: updatedPlayers,
+              diceValues: dice,
+              hasRolled: true,
+              rolling: false,
+            }
+          })
+
+          // End turn after showing the result
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleEndTurn()
+          }, 2000)
+        }
+        return
+      }
+
+      // Normal roll logic (not in jail)
       // Calculate new position
       let newPosition = currentPlayer.position + total
       let passedGo = false
@@ -481,6 +690,10 @@ export default function MonopolyGame() {
             hasRolled={gameState.hasRolled}
             onRoll={handleRoll}
             currentPlayerName={currentPlayer.name}
+            isInJail={currentPlayer.inJail}
+            jailTurns={currentPlayer.jailTurns}
+            onPayJailFee={handlePayJailFee}
+            canAffordJailFee={currentPlayer.money >= 50}
           />
 
           {gameState.players.slice(2).map((player) => (
