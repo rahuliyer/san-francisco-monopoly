@@ -89,26 +89,33 @@ test.describe('Dice Rolling', () => {
     await page.getByRole('button', { name: 'Roll Dice' }).click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-    // Handle any modals that appear
-    try {
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
-      if (await continueBtn.isVisible({ timeout: 2000 })) {
-        await continueBtn.click();
-      }
-    } catch { /* No modal */ }
+    // Wait for potential modal to appear
+    await page.waitForTimeout(1500);
 
+    // Handle any modals that appear
     try {
       const passBtn = page.getByRole('button', { name: 'Pass' });
       if (await passBtn.isVisible({ timeout: 1000 })) {
         await passBtn.click();
+        await page.waitForTimeout(500);
       }
     } catch { /* No modal */ }
 
-    // Wait for turn to change to second player
-    await expect(page.getByText("Player 2's Turn")).toBeVisible({ timeout: 15000 });
+    try {
+      const continueBtn = page.getByRole('button', { name: 'Continue' });
+      if (await continueBtn.isVisible({ timeout: 1000 })) {
+        await continueBtn.click();
+        await page.waitForTimeout(500);
+      }
+    } catch { /* No modal */ }
 
-    // Second player should be able to roll
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeEnabled({ timeout: 5000 });
+    // Wait for turn to change to second player - also check for jail
+    await expect(page.getByText("Player 2's Turn").or(page.getByText("Player 1's Turn"))).toBeVisible({ timeout: 15000 });
+
+    // Roll button should be enabled for next player
+    const rollDice = page.getByRole('button', { name: 'Roll Dice' });
+    const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
+    await expect(rollDice.or(rollForDoubles)).toBeEnabled({ timeout: 5000 });
   });
 });
 

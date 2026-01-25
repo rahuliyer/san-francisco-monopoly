@@ -44,10 +44,12 @@ test.describe('Game Board', () => {
 
   test('should display railroad spaces', async ({ page }) => {
     await expect(page.getByText('Caltrain')).toBeVisible();
-    await expect(page.getByText('BART')).toBeVisible();
-    await expect(page.getByText('Muni')).toBeVisible();
-    // Cable Car may match the token name too, so use first()
-    await expect(page.getByText('Cable Car').first()).toBeVisible();
+    // BART is a railroad space at position 15
+    await expect(page.getByText('BART', { exact: true })).toBeVisible();
+    // Muni - use exact matching to avoid matching "Community"
+    await expect(page.getByText('Muni', { exact: true })).toBeVisible();
+    // Cable Car space should exist on the board - there may be a Cable Car token name too
+    await expect(page.getByText('Cable Car', { exact: true }).first()).toBeVisible();
   });
 
   test('should display utility spaces', async ({ page }) => {
