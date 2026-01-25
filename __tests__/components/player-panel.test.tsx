@@ -173,16 +173,16 @@ describe('PlayerPanel component', () => {
     expect(propertyIndicators).toHaveLength(1)
   })
 
-  it('should apply player color to token background', () => {
-    const { container } = render(
+  it('should render player token with correct title (name)', () => {
+    render(
       <PlayerPanel
-        player={createMockPlayer({ color: '#2563EB' })}
+        player={createMockPlayer({ name: 'TestPlayer', color: '#2563EB' })}
         isCurrentTurn={false}
         propertyOwners={{}}
       />
     )
     
-    const tokenElement = container.querySelector('.rounded-full')
-    expect(tokenElement).toHaveStyle({ backgroundColor: '#2563EB' })
+    // The 3D token component sets the title attribute to the player name
+    expect(screen.getByTitle('TestPlayer')).toBeInTheDocument()
   })
 })

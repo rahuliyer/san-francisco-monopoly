@@ -2,6 +2,7 @@
 
 import { Player, BOARD_SPACES } from "@/lib/game-data"
 import { cn } from "@/lib/utils"
+import { PlayerToken3D } from "@/components/player-token-3d"
 
 interface PlayerPanelProps {
   player: Player
@@ -22,12 +23,12 @@ export function PlayerPanel({ player, isCurrentTurn, propertyOwners }: PlayerPan
       )}
     >
       <div className="flex items-center gap-3">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-full text-xl shadow-sm"
-          style={{ backgroundColor: player.color }}
-        >
-          {player.token}
-        </div>
+        <PlayerToken3D
+          icon={player.token}
+          color={player.color}
+          name={player.name}
+          size="md"
+        />
         <div className="flex-1">
           <h3 className="font-semibold text-stone-800">{player.name}</h3>
           <p className="text-lg font-bold text-emerald-600">${player.money.toLocaleString()}</p>

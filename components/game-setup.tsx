@@ -5,6 +5,7 @@ import { PLAYER_TOKENS } from "@/lib/game-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { PlayerToken3D } from "@/components/player-token-3d"
 
 interface PlayerSetup {
   name: string
@@ -86,7 +87,7 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
                 placeholder={`Player ${i + 1}`}
                 className="mb-3"
               />
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 {PLAYER_TOKENS.map((token, tokenIndex) => {
                   const isTaken =
                     players.some((p, pi) => pi !== i && pi < playerCount && p.tokenIndex === tokenIndex)
@@ -96,16 +97,20 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
                       onClick={() => updatePlayerToken(i, tokenIndex)}
                       disabled={isTaken}
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full text-lg transition-all",
+                        "p-1 rounded-lg transition-all",
                         players[i].tokenIndex === tokenIndex
-                          ? "ring-2 ring-amber-500 ring-offset-2"
+                          ? "ring-2 ring-amber-500 ring-offset-2 bg-amber-50"
                           : "",
-                        isTaken ? "cursor-not-allowed opacity-30" : "hover:scale-110"
+                        isTaken ? "cursor-not-allowed opacity-30" : "hover:bg-stone-100"
                       )}
-                      style={{ backgroundColor: token.color }}
                       title={token.name}
                     >
-                      {token.icon}
+                      <PlayerToken3D
+                        icon={token.icon}
+                        color={token.color}
+                        name={token.name}
+                        size="md"
+                      />
                     </button>
                   )
                 })}

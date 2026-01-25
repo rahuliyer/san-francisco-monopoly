@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Space, COLOR_MAP, Player } from "@/lib/game-data"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import { PlayerToken3D } from "@/components/player-token-3d"
 
 interface PropertyCardProps {
   space: Space
@@ -126,12 +127,12 @@ export function PropertyCard({ space, owner, onClose, onBuy, canBuy }: PropertyC
 
           {owner && (
             <div className="mt-3 flex items-center gap-2 rounded bg-stone-100 p-2">
-              <div
-                className="flex h-6 w-6 items-center justify-center rounded-full text-sm"
-                style={{ backgroundColor: owner.color }}
-              >
-                {owner.token}
-              </div>
+              <PlayerToken3D
+                icon={owner.token}
+                color={owner.color}
+                name={owner.name}
+                size="sm"
+              />
               <span className="text-sm text-stone-600">Owned by {owner.name}</span>
             </div>
           )}
