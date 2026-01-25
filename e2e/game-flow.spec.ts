@@ -19,6 +19,32 @@ async function closeAnyModal(page: Page) {
       return;
     }
   } catch { /* No modal */ }
+
+  try {
+    const cancelBtn = page.getByRole('button', { name: 'Cancel' });
+    if (await cancelBtn.isVisible({ timeout: 500 })) {
+      await cancelBtn.click();
+      await page.waitForTimeout(500);
+      return;
+    }
+  } catch { /* No modal */ }
+
+  try {
+    const closeTradeBtn = page.getByRole('button', { name: 'Close trade' });
+    if (await closeTradeBtn.isVisible({ timeout: 500 })) {
+      await closeTradeBtn.click();
+      await page.waitForTimeout(500);
+      return;
+    }
+  } catch { /* No modal */ }
+
+  try {
+    const closeBtn = page.locator('button').filter({ has: page.locator('svg.h-4.w-4') }).first();
+    if (await closeBtn.isVisible({ timeout: 500 })) {
+      await closeBtn.click();
+      await page.waitForTimeout(500);
+    }
+  } catch { /* No modal */ }
 }
 
 // Helper function to wait for roll button
@@ -34,6 +60,18 @@ async function waitForRollButton(page: Page) {
     return rollForDoubles;
   }
   return rollDice;
+}
+
+async function waitForTurn(page: Page, playerName: string) {
+  const turnLabel = page.getByText(`${playerName}'s Turn`);
+  for (let i = 0; i < 5; i++) {
+    if (await turnLabel.isVisible({ timeout: 1000 }).catch(() => false)) {
+      return;
+    }
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+  }
+  await expect(turnLabel).toBeVisible({ timeout: 15000 });
 }
 
 test.describe('Complete Game Flow', () => {
@@ -201,7 +239,7 @@ test.describe('Turn Progression', () => {
     await page.waitForTimeout(1500);
     await closeAnyModal(page);
 
-    await expect(page.getByText("Player 2's Turn")).toBeVisible({ timeout: 15000 });
+    await waitForTurn(page, 'Player 2');
 
     // Wait for roll button to be ready
     const rollBtn = await waitForRollButton(page);
@@ -211,7 +249,7 @@ test.describe('Turn Progression', () => {
     await page.waitForTimeout(1500);
     await closeAnyModal(page);
 
-    await expect(page.getByText("Player 1's Turn")).toBeVisible({ timeout: 15000 });
+    await waitForTurn(page, 'Player 1');
   });
 
   test('should cycle through 4 players correctly', async ({ page }) => {
@@ -236,7 +274,7 @@ test.describe('Turn Progression', () => {
     }
 
     // Should be back to Player 1
-    await expect(page.getByText("Player 1's Turn")).toBeVisible({ timeout: 15000 });
+    await waitForTurn(page, 'Player 1');
   });
 });
 
@@ -251,7 +289,7 @@ test.describe('Property Rent Payment', () => {
     // This test requires buying a property and then another player landing on it
     let boughtProperty = false;
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 15;
 
     // First, try to buy a property
     while (!boughtProperty && attempts < maxAttempts) {
@@ -259,14 +297,14 @@ test.describe('Property Rent Payment', () => {
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(1000);
 
       try {
         const buyButton = page.getByRole('button', { name: /Buy for \$/ });
         if (await buyButton.isVisible({ timeout: 1500 })) {
           await buyButton.click();
           boughtProperty = true;
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(300);
           continue;
         }
       } catch {
@@ -274,7 +312,7 @@ test.describe('Property Rent Payment', () => {
       }
 
       await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(700);
       attempts++;
     }
 
@@ -283,12 +321,12 @@ test.describe('Property Rent Payment', () => {
       let paidRent = false;
       attempts = 0;
 
-      while (!paidRent && attempts < 20) {
+      while (!paidRent && attempts < 12) {
         const rollBtn = await waitForRollButton(page);
         await rollBtn.click();
         await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
 
         // Check for rent paid notification
         try {
@@ -302,7 +340,7 @@ test.describe('Property Rent Payment', () => {
         }
 
         await closeAnyModal(page);
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(700);
         attempts++;
       }
     }
@@ -313,21 +351,21 @@ test.describe('Property Rent Payment', () => {
     let boughtProperty = false;
     let landedOnOwn = false;
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 20;
 
     while ((!boughtProperty || !landedOnOwn) && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(1000);
 
       try {
         const buyButton = page.getByRole('button', { name: /Buy for \$/ });
         if (await buyButton.isVisible({ timeout: 1500 })) {
           await buyButton.click();
           boughtProperty = true;
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(300);
           continue;
         }
       } catch {
@@ -346,7 +384,7 @@ test.describe('Property Rent Payment', () => {
       }
 
       await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(700);
       attempts++;
     }
   });

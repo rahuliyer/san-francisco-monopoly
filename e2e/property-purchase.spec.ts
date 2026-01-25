@@ -19,6 +19,32 @@ async function closeAnyModal(page: Page) {
       return;
     }
   } catch { /* No modal */ }
+
+  try {
+    const cancelBtn = page.getByRole('button', { name: 'Cancel' });
+    if (await cancelBtn.isVisible({ timeout: 500 })) {
+      await cancelBtn.click();
+      await page.waitForTimeout(500);
+      return;
+    }
+  } catch { /* No modal */ }
+
+  try {
+    const closeTradeBtn = page.getByRole('button', { name: 'Close trade' });
+    if (await closeTradeBtn.isVisible({ timeout: 500 })) {
+      await closeTradeBtn.click();
+      await page.waitForTimeout(500);
+      return;
+    }
+  } catch { /* No modal */ }
+
+  try {
+    const closeBtn = page.locator('button').filter({ has: page.locator('svg.h-4.w-4') }).first();
+    if (await closeBtn.isVisible({ timeout: 500 })) {
+      await closeBtn.click();
+      await page.waitForTimeout(500);
+    }
+  } catch { /* No modal */ }
 }
 
 // Helper function to wait for roll button
@@ -72,10 +98,9 @@ test.describe('Property Purchase', () => {
     const maxAttempts = 10;
 
     while (!boughtProperty && attempts < maxAttempts) {
-      // Wait for roll button to be enabled
-      await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeEnabled({ timeout: 10000 });
+      const rollBtn = await waitForRollButton(page);
 
-      await page.getByRole('button', { name: 'Roll Dice' }).click();
+      await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
       // Check if buy button appears
@@ -88,7 +113,8 @@ test.describe('Property Purchase', () => {
         boughtProperty = true;
       } catch {
         // Didn't land on a purchasable property, wait for next turn
-        await page.waitForTimeout(2500);
+        await closeAnyModal(page);
+        await page.waitForTimeout(1500);
         attempts++;
       }
     }
@@ -167,10 +193,11 @@ test.describe('Property Purchase', () => {
     const maxAttempts = 15;
 
     while (!boughtProperty && attempts < maxAttempts) {
-      await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeEnabled({ timeout: 10000 });
-
-      await page.getByRole('button', { name: 'Roll Dice' }).click();
+      const rollBtn = await waitForRollButton(page);
+      await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+      await page.waitForTimeout(1200);
 
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
 
@@ -179,7 +206,8 @@ test.describe('Property Purchase', () => {
         await buyButton.click();
         boughtProperty = true;
       } catch {
-        await page.waitForTimeout(2500);
+        await closeAnyModal(page);
+        await page.waitForTimeout(1500);
         attempts++;
       }
     }
@@ -281,8 +309,7 @@ test.describe('Property Ownership Display', () => {
 
       // Properties that are owned should have an owner indicator (box-shadow style)
       const ownedSpaces = page.locator('[style*="box-shadow: inset"]');
-      const count = await ownedSpaces.count();
-      expect(count).toBeGreaterThanOrEqual(1);
+      await expect(ownedSpaces.first()).toBeVisible({ timeout: 5000 });
     }
   });
 });

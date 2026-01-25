@@ -16,7 +16,7 @@ test.describe('Trading Mechanics', () => {
     await startGame(page);
 
     await openTradeModal(page);
-    await expect(page.getByLabelText('Trade partner')).toBeVisible();
+    await expect(page.getByLabel('Trade partner')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Complete Trade' })).toBeDisabled();
 
     await page.getByRole('button', { name: 'Cancel' }).click();
@@ -28,8 +28,8 @@ test.describe('Trading Mechanics', () => {
 
     await openTradeModal(page);
 
-    await page.getByLabelText('Cash you give').fill('100');
-    await page.getByLabelText('Cash you receive').fill('50');
+    await page.getByLabel('Cash you give').fill('100');
+    await page.getByLabel('Cash you receive').fill('50');
     await page.getByRole('button', { name: 'Complete Trade' }).click();
 
     await expect(page.getByText('Make a Trade')).not.toBeVisible();
