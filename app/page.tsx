@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { GameSetup } from "@/components/game-setup"
 import { GameBoard } from "@/components/game-board"
 import { PlayerPanel } from "@/components/player-panel"
@@ -14,6 +14,14 @@ import {
   rollDice,
 } from "@/lib/game-data"
 
+// Generate random initial dice values (for display only)
+function getRandomInitialDice(): [number, number] {
+  return [
+    Math.floor(Math.random() * 6) + 1,
+    Math.floor(Math.random() * 6) + 1,
+  ]
+}
+
 interface GameState {
   players: Player[]
   currentPlayerIndex: number
@@ -23,6 +31,7 @@ interface GameState {
   rolling: boolean
   selectedSpace: Space | null
   gameLog: string[]
+  awaitingPropertyDecision: boolean
 }
 
 export default function MonopolyGame() {
@@ -31,12 +40,14 @@ export default function MonopolyGame() {
     players: [],
     currentPlayerIndex: 0,
     propertyOwners: {},
-    diceValues: [0, 0] as [number, number],
+    diceValues: getRandomInitialDice(),
     hasRolled: false,
     rolling: false,
     selectedSpace: null,
     gameLog: [],
+    awaitingPropertyDecision: false,
   })
+  const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
     const players = playerSetups.map((setup, i) =>
@@ -58,6 +69,12 @@ export default function MonopolyGame() {
   }, [])
 
   const handleRoll = useCallback(() => {
+    // Clear any pending end turn timeout
+    if (endTurnTimeoutRef.current) {
+      clearTimeout(endTurnTimeoutRef.current)
+      endTurnTimeoutRef.current = null
+    }
+
     setGameState((prev) => ({ ...prev, rolling: true }))
 
     // Simulate rolling animation
@@ -77,7 +94,11 @@ export default function MonopolyGame() {
 
       const landedSpace = BOARD_SPACES[newPosition]
 
+      // Check if this is a purchasable space that is unowned
+      const isPurchasable = landedSpace.type === "property" || landedSpace.type === "railroad" || landedSpace.type === "utility"
+
       setGameState((prev) => {
+        const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
         const updatedPlayers = [...prev.players]
         updatedPlayers[prev.currentPlayerIndex] = {
           ...updatedPlayers[prev.currentPlayerIndex],
@@ -103,6 +124,9 @@ export default function MonopolyGame() {
           diceValues: dice,
           hasRolled: true,
           rolling: false,
+          // Auto-show buy modal if it's a purchasable unowned space
+          selectedSpace: (isPurchasable && isUnowned) ? landedSpace : null,
+          awaitingPropertyDecision: isPurchasable && isUnowned,
         }
       })
 
@@ -124,21 +148,39 @@ export default function MonopolyGame() {
         })
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
       }
+
+      // Check if we need to wait for property decision or auto-end turn
+      setGameState((prev) => {
+        const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+        if (isPurchasable && isUnowned) {
+          // Player needs to decide on the property - turn will end when modal closes
+          return prev
+        } else {
+          // Auto-end turn after a short delay
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleEndTurn()
+          }, 1500)
+          return prev
+        }
+      })
     }, 800)
-  }, [gameState.players, gameState.currentPlayerIndex, addLog])
+  }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
   const handleEndTurn = useCallback(() => {
     setGameState((prev) => {
       const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
+      const nextPlayerName = prev.players[nextPlayerIndex].name
+      // Schedule the log message after state update
+      setTimeout(() => addLog(`${nextPlayerName}'s turn`), 0)
       return {
         ...prev,
         currentPlayerIndex: nextPlayerIndex,
         hasRolled: false,
-        diceValues: [0, 0] as [number, number],
+        diceValues: getRandomInitialDice(),
+        awaitingPropertyDecision: false,
       }
     })
-    addLog(`${gameState.players[(gameState.currentPlayerIndex + 1) % gameState.players.length].name}'s turn`)
-  }, [gameState.players, gameState.currentPlayerIndex, addLog])
+  }, [addLog])
 
   const handleSpaceClick = useCallback((space: Space) => {
     if (space.type === "property" || space.type === "railroad" || space.type === "utility") {
@@ -147,8 +189,16 @@ export default function MonopolyGame() {
   }, [])
 
   const handleCloseCard = useCallback(() => {
-    setGameState((prev) => ({ ...prev, selectedSpace: null }))
-  }, [])
+    setGameState((prev) => {
+      // If we were awaiting a property decision, end the turn after closing
+      if (prev.awaitingPropertyDecision) {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 500)
+      }
+      return { ...prev, selectedSpace: null, awaitingPropertyDecision: false }
+    })
+  }, [handleEndTurn])
 
   const handleBuyProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -175,10 +225,16 @@ export default function MonopolyGame() {
           [space.id]: prev.currentPlayerIndex,
         },
         selectedSpace: null,
+        awaitingPropertyDecision: false,
       }
     })
     addLog(`${currentPlayer.name} bought ${space.name} for $${space.price}`)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog])
+    
+    // Auto-end turn after buying
+    endTurnTimeoutRef.current = setTimeout(() => {
+      handleEndTurn()
+    }, 500)
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
   if (!gameStarted) {
     return <GameSetup onStartGame={handleStartGame} />
@@ -230,7 +286,6 @@ export default function MonopolyGame() {
             rolling={gameState.rolling}
             hasRolled={gameState.hasRolled}
             onRoll={handleRoll}
-            onEndTurn={handleEndTurn}
             currentPlayerName={currentPlayer.name}
           />
 
