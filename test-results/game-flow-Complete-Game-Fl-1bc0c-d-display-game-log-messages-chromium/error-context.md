@@ -1,0 +1,163 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - alert [ref=e11]
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e16]:
+        - generic [ref=e18] [cursor=pointer]:
+          - img "Golden Gate Park" [ref=e19]
+          - generic [ref=e23]: Golden Gate Park
+        - generic [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: Mission District
+          - generic [ref=e29]: $220
+        - generic [ref=e31] [cursor=pointer]:
+          - img "Chance" [ref=e32]
+          - generic [ref=e36]: Chance
+        - generic [ref=e40] [cursor=pointer]:
+          - generic [ref=e41]: Castro
+          - generic [ref=e42]: $220
+        - generic [ref=e46] [cursor=pointer]:
+          - generic [ref=e47]: SoMa
+          - generic [ref=e48]: $240
+        - generic [ref=e52] [cursor=pointer]:
+          - generic [ref=e53]: Muni
+          - generic [ref=e54]: $200
+        - generic [ref=e58] [cursor=pointer]:
+          - generic [ref=e59]: Marina
+          - generic [ref=e60]: $260
+        - generic [ref=e64] [cursor=pointer]:
+          - generic [ref=e65]: Cow Hollow
+          - generic [ref=e66]: $260
+        - generic [ref=e70] [cursor=pointer]:
+          - generic [ref=e71]: SF Water
+          - generic [ref=e72]: $150
+        - generic [ref=e76] [cursor=pointer]:
+          - generic [ref=e77]: Pacific Heights
+          - generic [ref=e78]: $280
+        - generic [ref=e80] [cursor=pointer]:
+          - img "Go To Alcatraz" [ref=e81]
+          - generic [ref=e85]: Go To Alcatraz
+        - generic [ref=e89] [cursor=pointer]:
+          - generic [ref=e90]: Dogpatch
+          - generic [ref=e91]: $140
+        - generic [ref=e95] [cursor=pointer]:
+          - generic [ref=e96]: PG&E
+          - generic [ref=e97]: $150
+        - generic [ref=e101] [cursor=pointer]:
+          - generic [ref=e102]: Potrero Hill
+          - generic [ref=e103]: $140
+        - generic [ref=e107] [cursor=pointer]:
+          - generic [ref=e108]: Bernal Heights
+          - generic [ref=e109]: $160
+        - generic [ref=e113] [cursor=pointer]:
+          - generic [ref=e114]: BART
+          - generic [ref=e115]: $200
+        - generic [ref=e119] [cursor=pointer]:
+          - generic [ref=e120]: Hayes Valley
+          - generic [ref=e121]: $180
+        - generic [ref=e123] [cursor=pointer]:
+          - img "Community Chest" [ref=e124]
+          - generic [ref=e128]: Community Chest
+        - generic [ref=e132] [cursor=pointer]:
+          - generic [ref=e133]: Cole Valley
+          - generic [ref=e134]: $180
+        - generic [ref=e138] [cursor=pointer]:
+          - generic [ref=e139]: Noe Valley
+          - generic [ref=e140]: $200
+        - generic [ref=e144] [cursor=pointer]:
+          - generic [ref=e145]: Sea Cliff
+          - generic [ref=e146]: $400
+        - generic [ref=e150] [cursor=pointer]: Luxury Tax
+        - generic [ref=e154] [cursor=pointer]:
+          - generic [ref=e155]: Presidio Heights
+          - generic [ref=e156]: $350
+        - generic [ref=e158] [cursor=pointer]:
+          - img "Chance" [ref=e159]
+          - generic [ref=e163]: Chance
+        - generic [ref=e167] [cursor=pointer]:
+          - generic [ref=e168]: Cable Car
+          - generic [ref=e169]: $200
+        - generic [ref=e173] [cursor=pointer]:
+          - generic [ref=e174]: Telegraph Hill
+          - generic [ref=e175]: $320
+        - generic [ref=e177] [cursor=pointer]:
+          - img "Community Chest" [ref=e178]
+          - generic [ref=e182]: Community Chest
+        - generic [ref=e186] [cursor=pointer]:
+          - generic [ref=e187]: Nob Hill
+          - generic [ref=e188]: $300
+        - generic [ref=e192] [cursor=pointer]:
+          - generic [ref=e193]: Russian Hill
+          - generic [ref=e194]: $300
+        - generic [ref=e196] [cursor=pointer]:
+          - img "Alcatraz" [ref=e197]
+          - generic [ref=e201]: Alcatraz
+          - generic "Player 1" [ref=e203]:
+            - generic [ref=e206]: 🚃
+        - generic [ref=e211] [cursor=pointer]:
+          - generic [ref=e212]: Outer Mission
+          - generic [ref=e213]: $120
+        - generic [ref=e217] [cursor=pointer]:
+          - generic [ref=e218]: Richmond District
+          - generic [ref=e219]: $100
+        - generic [ref=e221] [cursor=pointer]:
+          - img "Chance" [ref=e222]
+          - generic [ref=e226]: Chance
+        - generic [ref=e230] [cursor=pointer]:
+          - generic [ref=e231]: Sunset District
+          - generic [ref=e232]: $100
+        - generic [ref=e236] [cursor=pointer]:
+          - generic [ref=e237]: Caltrain
+          - generic [ref=e238]: $200
+        - generic [ref=e242] [cursor=pointer]: Income Tax
+        - generic [ref=e246] [cursor=pointer]:
+          - generic [ref=e247]: Bayview
+          - generic [ref=e248]: $60
+        - generic [ref=e250] [cursor=pointer]:
+          - img "Community Chest" [ref=e251]
+          - generic [ref=e255]: Community Chest
+        - generic [ref=e259] [cursor=pointer]:
+          - generic [ref=e260]: Tenderloin
+          - generic [ref=e261]: $60
+        - generic [ref=e263] [cursor=pointer]:
+          - img "Fisherman's Wharf" [ref=e264]
+          - generic [ref=e268]: Fisherman's Wharf
+          - generic "Player 2" [ref=e270]:
+            - generic [ref=e273]: 🦀
+        - generic [ref=e275]:
+          - heading "SF" [level=1] [ref=e276]
+          - heading "MONOPOLY" [level=2] [ref=e277]
+          - paragraph [ref=e279]: The San Francisco Edition
+      - generic [ref=e280]:
+        - generic [ref=e282]:
+          - generic "Player 1" [ref=e283]:
+            - generic [ref=e286]: 🚃
+          - generic [ref=e288]:
+            - heading "Player 1" [level=3] [ref=e289]
+            - paragraph [ref=e290]: $1,500
+          - generic [ref=e291]: Your Turn
+        - generic [ref=e293]:
+          - generic "Player 2" [ref=e294]:
+            - generic [ref=e297]: 🦀
+          - generic [ref=e299]:
+            - heading "Player 2" [level=3] [ref=e300]
+            - paragraph [ref=e301]: $1,500
+      - generic [ref=e302]:
+        - paragraph [ref=e303]: Player 1's Turn
+        - paragraph [ref=e365]: "Rolled: 10"
+        - button "Roll Dice" [disabled]
+    - generic [ref=e367]:
+      - img "Alcatraz" [ref=e369]
+      - generic [ref=e371]:
+        - generic [ref=e372]: Just Visiting
+        - heading "Alcatraz" [level=2] [ref=e373]
+      - button [ref=e374]:
+        - img [ref=e375]
+      - generic [ref=e378]:
+        - paragraph [ref=e379]: You're just visiting. No penalty!
+        - button "Continue" [ref=e380]
+```
