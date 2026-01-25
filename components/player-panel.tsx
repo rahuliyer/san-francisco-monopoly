@@ -8,9 +8,10 @@ interface PlayerPanelProps {
   player: Player
   isCurrentTurn: boolean
   propertyOwners: Record<number, number>
+  onPropertiesClick?: () => void
 }
 
-export function PlayerPanel({ player, isCurrentTurn, propertyOwners }: PlayerPanelProps) {
+export function PlayerPanel({ player, isCurrentTurn, propertyOwners, onPropertiesClick }: PlayerPanelProps) {
   const ownedProperties = BOARD_SPACES.filter(
     (space) => propertyOwners[space.id] === player.id
   )
@@ -47,8 +48,16 @@ export function PlayerPanel({ player, isCurrentTurn, propertyOwners }: PlayerPan
       )}
 
       {ownedProperties.length > 0 && (
-        <div className="mt-3 border-t pt-3">
-          <p className="mb-2 text-xs font-medium text-stone-500">Properties ({ownedProperties.length})</p>
+        <button
+          onClick={onPropertiesClick}
+          className="mt-3 w-full border-t pt-3 text-left transition-colors hover:bg-stone-50 rounded-b-md -mx-4 px-4 -mb-4 pb-4"
+        >
+          <p className="mb-2 text-xs font-medium text-stone-500 flex items-center gap-1">
+            Properties ({ownedProperties.length})
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </p>
           <div className="flex flex-wrap gap-1">
             {ownedProperties.map((prop) => (
               <div
@@ -77,7 +86,7 @@ export function PlayerPanel({ player, isCurrentTurn, propertyOwners }: PlayerPan
               />
             ))}
           </div>
-        </div>
+        </button>
       )}
     </div>
   )
