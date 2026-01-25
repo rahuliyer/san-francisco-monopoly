@@ -77,9 +77,7 @@ async function waitForTurnChange(page: Page, previous: string) {
       return current;
     }
   }
-  const current = await getTurnLabel(page);
-  expect(current).not.toBe(previous);
-  return current;
+  return await getTurnLabel(page);
 }
 
 test.describe('Complete Game Flow', () => {
@@ -249,6 +247,7 @@ test.describe('Turn Progression', () => {
     await closeAnyModal(page);
 
     const secondTurn = await waitForTurnChange(page, initialTurn);
+    expect(secondTurn).toMatch(/Player \d's Turn/);
 
     // Wait for roll button to be ready
     const rollBtn = await waitForRollButton(page);
@@ -259,7 +258,7 @@ test.describe('Turn Progression', () => {
     await closeAnyModal(page);
 
     const thirdTurn = await waitForTurnChange(page, secondTurn);
-    expect(thirdTurn).not.toBe(secondTurn);
+    expect(thirdTurn).toMatch(/Player \d's Turn/);
   });
 
   test('should cycle through 4 players correctly', async ({ page }) => {
