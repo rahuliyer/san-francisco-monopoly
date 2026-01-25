@@ -80,8 +80,8 @@ describe('GameControls component', () => {
 
   it('should render dice component with values', () => {
     render(<GameControls {...defaultProps} diceValues={[3, 4]} />)
-    // Check for dice container
-    const diceContainer = document.querySelector('.flex.gap-3')
+    // Check for dice container (3D dice uses gap-4)
+    const diceContainer = document.querySelector('.flex.gap-4')
     expect(diceContainer).toBeInTheDocument()
   })
 })
