@@ -22,6 +22,8 @@ import {
 
 // Duration to wait for dice animation to complete after rolling stops (ms)
 const DICE_ANIMATION_DURATION = 700
+// Additional delay after dice animation before showing card dialog (ms)
+const CARD_SHOW_DELAY = 400
 
 // Generate random initial dice values (for display only)
 function getRandomInitialDice(): [number, number] {
@@ -211,7 +213,7 @@ export default function MonopolyGame() {
                 awaitingSpecialSpace: isSpecialSpace,
               }
             })
-          }, DICE_ANIMATION_DURATION)
+          }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY)
 
           addLog(`${currentPlayer.name} rolled doubles (${dice[0]} + ${dice[1]}) and escaped Alcatraz!`)
           addLog(`Landed on ${landedSpace.name}`)
@@ -298,7 +300,7 @@ export default function MonopolyGame() {
                 return prev
               }
             })
-          }, DICE_ANIMATION_DURATION + 50) // Slightly after dialog appears
+          }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY + 50) // Slightly after dialog appears
         } else {
           // Player didn't roll doubles - still in jail
           const newJailTurns = currentPlayer.jailTurns + 1
@@ -480,7 +482,7 @@ export default function MonopolyGame() {
             awaitingSpecialSpace: isSpecialSpace,
           }
         })
-      }, DICE_ANIMATION_DURATION)
+      }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY)
 
       // Log the roll
       let logMessage = `${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} = ${total}`
@@ -589,7 +591,7 @@ export default function MonopolyGame() {
             return prev
           }
         })
-      }, DICE_ANIMATION_DURATION + 50) // Slightly after dialog appears
+      }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY + 50) // Slightly after dialog appears
     }, 800)
   }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
 
