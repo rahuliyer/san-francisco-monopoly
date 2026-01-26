@@ -60,20 +60,6 @@ async function waitForTurn(page: Page, playerName: string) {
 }
 
 async function setupGameWithRandom(page: Page, sequence: number[], playerCount = 2) {
-  await page.addInitScript({
-    content: `
-      (() => {
-        const sequence = ${JSON.stringify(sequence)};
-        let index = 0;
-        Math.random = () => {
-          const value = sequence[index % sequence.length];
-          index += 1;
-          return value;
-        };
-      })();
-    `,
-  });
-
   await page.goto('/');
   if (playerCount === 3) {
     await page.getByRole('button', { name: '3 Players' }).click();
@@ -83,6 +69,15 @@ async function setupGameWithRandom(page: Page, sequence: number[], playerCount =
   }
   await page.getByRole('button', { name: 'Start Game' }).click();
   await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
+  await page.evaluate((randomSequence) => {
+    let index = 0;
+    Math.random = () => {
+      const value = randomSequence[index % randomSequence.length];
+      index += 1;
+      return value;
+    };
+  }, sequence);
 }
 
 test.describe('Complete Game Flow', () => {
