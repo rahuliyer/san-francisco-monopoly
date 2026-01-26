@@ -95,8 +95,13 @@ async function resolveSingleTurn(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  await closeAnyModal(page);
-  await expect(page.getByText(`${playerName}'s Turn`)).toBeVisible({ timeout: 20000 });
+  const turnLabel = page.getByText(`${playerName}'s Turn`);
+  await expect
+    .poll(async () => {
+      await closeAnyModal(page);
+      return turnLabel.isVisible();
+    }, { timeout: 20000 })
+    .toBe(true);
 }
 
 test.describe('Property Mortgage Flow', () => {

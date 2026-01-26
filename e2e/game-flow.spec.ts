@@ -46,8 +46,28 @@ async function waitForRollButton(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  await closeAnyModal(page);
-  await expect(page.getByText(`${playerName}'s Turn`)).toBeVisible({ timeout: 20000 });
+  const turnLabel = page.getByText(`${playerName}'s Turn`);
+  await expect
+    .poll(async () => {
+      await closeAnyModal(page);
+      return turnLabel.isVisible();
+    }, { timeout: 20000 })
+    .toBe(true);
+}
+
+async function setupGameWithRandom(page: Page, sequence: number[]) {
+  await page.addInitScript((randomSequence) => {
+    let index = 0;
+    Math.random = () => {
+      const value = randomSequence[index % randomSequence.length];
+      index += 1;
+      return value;
+    };
+  }, sequence);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start Game' }).click();
+  await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Complete Game Flow', () => {
@@ -165,8 +185,9 @@ test.describe('Complete Game Flow', () => {
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // Roll dice
-    await page.getByRole('button', { name: 'Roll Dice' }).click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
     // Wait for game log to update - the "Landed on" message appears in the modal or as an update
     await page.waitForTimeout(2000);
@@ -252,113 +273,75 @@ test.describe('Turn Progression', () => {
 });
 
 test.describe('Property Rent Payment', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Start Game' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
-
   test('should show rent paid notification when landing on owned property', async ({ page }) => {
-    // This test requires buying a property and then another player landing on it
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 15;
+    const rollSequence = [0.55, 0.55, 0.55, 0.55];
+    await setupGameWithRandom(page, rollSequence);
 
-    // First, try to buy a property
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
-      await page.waitForTimeout(1000);
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 5000 });
+    await buyButton.click();
 
-      try {
-        const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(300);
-          continue;
-        }
-      } catch {
-        // Not a property
-      }
+    await waitForTurn(page, 'Player 2');
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(700);
-      attempts++;
-    }
-
-    if (boughtProperty) {
-      // Now try to have the other player land on the owned property
-      let paidRent = false;
-      attempts = 0;
-
-      while (!paidRent && attempts < 12) {
-        const rollBtn = await waitForRollButton(page);
-        await rollBtn.click();
-        await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-        await page.waitForTimeout(1000);
-
-        // Check for rent paid notification
-        try {
-          const rentPaid = page.getByText(/Rent Paid: \$/);
-          if (await rentPaid.isVisible({ timeout: 1500 })) {
-            paidRent = true;
-            await expect(rentPaid).toBeVisible();
-          }
-        } catch {
-          // No rent paid
-        }
-
-        await closeAnyModal(page);
-        await page.waitForTimeout(700);
-        attempts++;
-      }
-    }
+    const rollBtnTwo = await waitForRollButton(page);
+    await rollBtnTwo.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/Rent Paid: \$/)).toBeVisible({ timeout: 5000 });
   });
 
   test('should show own property notification when landing on your own property', async ({ page }) => {
-    // This test requires buying a property and then landing on it yourself
-    let boughtProperty = false;
-    let landedOnOwn = false;
-    let attempts = 0;
-    const maxAttempts = 12;
+    const rollSequence = [
+      0.55, 0.55, // P1: 8 (buy Richmond)
+      0.3, 0.3,   // P2: 4
+      0.55, 0.9,  // P1: 10
+      0.3, 0.3,   // P2: 4
+      0.55, 0.9,  // P1: 10
+      0.3, 0.3,   // P2: 4
+      0.55, 0.9,  // P1: 10
+      0.3, 0.3,   // P2: 4
+      0.55, 0.9,  // P1: 10 (back to Richmond)
+    ];
 
-    while ((!boughtProperty || !landedOnOwn) && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await setupGameWithRandom(page, rollSequence);
 
-      await page.waitForTimeout(800);
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
-      try {
-        const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(250);
-          continue;
-        }
-      } catch {
-        // Not a buyable property
-      }
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 5000 });
+    await buyButton.click();
 
-      // Check for "You own this property" notification
-      try {
-        const ownProperty = page.getByText('You own this property!');
-        if (await ownProperty.isVisible({ timeout: 1500 })) {
-          landedOnOwn = true;
-          await expect(page.getByText('No rent is due. Enjoy your stay!')).toBeVisible();
-        }
-      } catch {
-        // Not own property
+    await waitForTurn(page, 'Player 2');
+
+    for (let i = 0; i < 4; i++) {
+      const rollBtnTwo = await waitForRollButton(page);
+      await rollBtnTwo.click();
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+      await page.waitForTimeout(1500);
+      await closeAnyModal(page);
+
+      await waitForTurn(page, 'Player 1');
+
+      const rollBtnOne = await waitForRollButton(page);
+      await rollBtnOne.click();
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+      await page.waitForTimeout(1500);
+
+      if (i === 3) {
+        await expect(page.getByText('You own this property!')).toBeVisible({ timeout: 5000 });
+        await expect(page.getByText('No rent is due. Enjoy your stay!')).toBeVisible();
       }
 
       await closeAnyModal(page);
-      await page.waitForTimeout(500);
-      attempts++;
+
+      if (i < 3) {
+        await waitForTurn(page, 'Player 2');
+      }
     }
   });
 });

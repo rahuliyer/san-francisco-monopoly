@@ -54,8 +54,9 @@ test.describe('Property Purchase', () => {
 
   test('should show property card with buy options when landing on unowned property', async ({ page }) => {
     // Roll dice
-    await page.getByRole('button', { name: 'Roll Dice' }).click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
     // Wait for the property card modal to appear (if landing on a purchasable property)
     // Or wait for turn to change if landing on a non-purchasable space
@@ -82,9 +83,14 @@ test.describe('Property Purchase', () => {
 
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
+<<<<<<< HEAD
 
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+=======
+      await rollBtn.click();
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+>>>>>>> c953a6f (Stabilize Playwright turn and rent tests)
 
       // Check if buy button appears
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
@@ -148,7 +154,11 @@ test.describe('Property Purchase', () => {
     while (attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
+<<<<<<< HEAD
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+=======
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+>>>>>>> c953a6f (Stabilize Playwright turn and rent tests)
 
       const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
 
@@ -231,7 +241,7 @@ test.describe('Property Ownership Display', () => {
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
       await page.waitForTimeout(1200);
 
