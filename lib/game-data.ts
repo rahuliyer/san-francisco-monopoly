@@ -116,6 +116,14 @@ export function createPlayer(id: number, name: string, tokenIndex: number): Play
 }
 
 export function rollDice(): [number, number] {
+  const override = (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] })
+    .__TEST_DICE_ROLLS__
+  if (Array.isArray(override) && override.length > 0) {
+    const [first, second] = override.shift() ?? []
+    const safeFirst = typeof first === "number" ? Math.min(Math.max(first, 1), 6) : 1
+    const safeSecond = typeof second === "number" ? Math.min(Math.max(second, 1), 6) : 1
+    return [safeFirst, safeSecond]
+  }
   return [
     Math.floor(Math.random() * 6) + 1,
     Math.floor(Math.random() * 6) + 1,

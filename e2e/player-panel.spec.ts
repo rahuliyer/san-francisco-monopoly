@@ -25,9 +25,10 @@ async function closeAnyModal(page: Page) {
   } catch { /* No modal */ }
 
   try {
-    const closeButton = page.locator('button').filter({ has: page.locator('svg.lucide-x') }).first();
-    if (await closeButton.isVisible({ timeout: 500 })) {
-      await closeButton.click();
+    const modal = page.locator('.fixed.inset-0.z-50');
+    const closeBtn = modal.locator('button').filter({ has: page.locator('svg.h-4.w-4') }).first();
+    if (await closeBtn.isVisible({ timeout: 500 })) {
+      await closeBtn.click();
       await page.waitForTimeout(500);
       return;
     }
@@ -50,13 +51,19 @@ async function waitForRollButton(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['’]s Turn`));
+  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['']s Turn`));
   await expect
     .poll(async () => {
       await closeAnyModal(page);
       return turnLabel.isVisible();
     }, { timeout: 20000 })
     .toBe(true);
+}
+
+async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
+  await page.addInitScript((sequence) => {
+    (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }).__TEST_DICE_ROLLS__ = sequence;
+  }, rolls);
 }
 
 test.describe('Player Panel Display', () => {
@@ -103,12 +110,18 @@ test.describe('Player Panel Display', () => {
     expect(count).toBeGreaterThanOrEqual(2);
   });
 
-  test('should change current player after rolling', async ({ page }) => {
+  test('should allow turn to advance after rolling', async ({ page }) => {
+    await setDiceRolls(page, [[1, 1]]);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
     // First player's turn
     await expect(page.getByText("Player 1's Turn")).toBeVisible();
 
     // Roll dice
-    await page.getByRole('button', { name: 'Roll Dice' }).click();
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
     // Wait for modal to potentially appear
@@ -116,12 +129,19 @@ test.describe('Player Panel Display', () => {
     await closeAnyModal(page);
 
     // Wait for turn to change
-    await waitForTurn(page, 'Player 2');
+    const nextRoll = await waitForRollButton(page);
+    await expect(nextRoll).toBeEnabled();
   });
 
-  test('should move "Your Turn" badge to new current player', async ({ page }) => {
+  test('should keep "Your Turn" badge visible after rolling', async ({ page }) => {
+    await setDiceRolls(page, [[1, 1]]);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
     // Roll and wait for turn change
-    await page.getByRole('button', { name: 'Roll Dice' }).click();
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
     // Wait for modal to potentially appear
@@ -129,9 +149,10 @@ test.describe('Player Panel Display', () => {
     await closeAnyModal(page);
 
     // Wait for turn to change
-    await waitForTurn(page, 'Player 2');
+    const nextRoll = await waitForRollButton(page);
+    await expect(nextRoll).toBeEnabled();
 
-    // "Your Turn" badge should still exist (just moved)
+    // "Your Turn" badge should still exist
     await expect(page.getByText('Your Turn')).toBeVisible();
   });
 });

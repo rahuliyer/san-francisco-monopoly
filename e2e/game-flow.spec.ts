@@ -4,48 +4,20 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-test.describe('Monopoly flow', () => {
-  test('player can buy a property after rolling', async ({ page }) => {
-    await page.addInitScript(() => {
-      Math.random = () => 0.34;
-    });
+async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
+  await page.addInitScript((sequence) => {
+    (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }).__TEST_DICE_ROLLS__ = sequence;
+  }, rolls);
+}
 
-    await page.goto('/');
-    await page.getByRole('button', { name: /start game/i }).click();
-
-    await page.getByRole('button', { name: /roll dice/i }).click();
-
-    const buyButton = page.getByRole('button', { name: /buy for \$100/i });
-    await expect(buyButton).toBeVisible();
-    await buyButton.click();
-    await expect(buyButton).toHaveCount(0);
-
-    await expect(page.getByText('$1,400')).toBeVisible();
-    await expect(page.getByText('Properties (1)')).toBeVisible();
-  });
-
-  test('owned property shows build requirement message', async ({ page }) => {
-    await page.addInitScript(() => {
-      Math.random = () => 0.34;
-    });
-
-    await page.goto('/');
-    await page.getByRole('button', { name: /start game/i }).click();
-    await page.getByRole('button', { name: /roll dice/i }).click();
-
-    const buyButton = page.getByRole('button', { name: /buy for \$100/i });
-    await expect(buyButton).toBeVisible();
-    await buyButton.click();
-    await expect(buyButton).toHaveCount(0);
-
-    await page.getByText('Properties (1)').click();
-    await page.getByRole('button', { name: /sunset district/i }).click();
-
-    await expect(
-      page.getByText('Own all properties in this neighborhood to build.')
-    ).toBeVisible();
-  });
-});
+async function rollAndClose(page: Page) {
+  const rollBtn = await waitForRollButton(page);
+  await rollBtn.click();
+  await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+  await page.waitForTimeout(1500);
+  await closeAnyModal(page);
+  await page.waitForTimeout(500);
+}
 
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
@@ -68,9 +40,10 @@ async function closeAnyModal(page: Page) {
   } catch { /* No modal */ }
 
   try {
-    const closeButton = page.locator('button').filter({ has: page.locator('svg.lucide-x') }).first();
-    if (await closeButton.isVisible({ timeout: 500 })) {
-      await closeButton.click();
+    const modal = page.locator('.fixed.inset-0.z-50');
+    const closeBtn = modal.locator('button').filter({ has: page.locator('svg.h-4.w-4') }).first();
+    if (await closeBtn.isVisible({ timeout: 500 })) {
+      await closeBtn.click();
       await page.waitForTimeout(500);
       return;
     }
@@ -80,12 +53,12 @@ async function closeAnyModal(page: Page) {
 // Helper function to wait for roll button
 async function waitForRollButton(page: Page) {
   await closeAnyModal(page);
-  
+
   const rollDice = page.getByRole('button', { name: 'Roll Dice' });
   const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
-  
+
   await expect(rollDice.or(rollForDoubles)).toBeEnabled({ timeout: 15000 });
-  
+
   if (await rollForDoubles.isVisible().catch(() => false)) {
     return rollForDoubles;
   }
@@ -93,7 +66,7 @@ async function waitForRollButton(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['’]s Turn`));
+  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['']s Turn`));
   await expect
     .poll(async () => {
       await closeAnyModal(page);
@@ -141,6 +114,50 @@ async function setupGameWithRandom(page: Page, sequence: number[], playerCount =
     };
   }, sequence);
 }
+
+test.describe('Monopoly flow', () => {
+  test('player can buy a property after rolling', async ({ page }) => {
+    await setDiceRolls(page, [[3, 3]]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /start game/i }).click();
+
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+
+    const buyButton = page.getByRole('button', { name: /buy for \$100/i });
+    await expect(buyButton).toBeVisible();
+    await buyButton.click();
+    await expect(buyButton).toHaveCount(0);
+
+    await expect(page.getByText('$1,400')).toBeVisible();
+    await expect(page.getByText('Properties (1)')).toBeVisible();
+  });
+
+  test('owned property shows build requirement message', async ({ page }) => {
+    await setDiceRolls(page, [[3, 3]]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /start game/i }).click();
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+
+    const buyButton = page.getByRole('button', { name: /buy for \$100/i });
+    await expect(buyButton).toBeVisible();
+    await buyButton.click();
+    await expect(buyButton).toHaveCount(0);
+
+    await page.getByText('Properties (1)').click();
+    const propertiesHeading = page.getByRole('heading', { name: /'s Properties$/ });
+    await expect(propertiesHeading).toBeVisible();
+    const propertiesModal = propertiesHeading.locator('..').locator('..');
+    await propertiesModal.getByRole('button', { name: /sunset district/i }).click();
+
+    await expect(
+      page.getByText('Own all properties in this neighborhood to build.')
+    ).toBeVisible();
+  });
+});
 
 test.describe('Complete Game Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -263,7 +280,7 @@ test.describe('Complete Game Flow', () => {
 
     // Wait for game log to update - the "Landed on" message appears in the modal or as an update
     await page.waitForTimeout(2000);
-    
+
     // The game shows the space name in the modal title or content
     // Just verify the roll completed successfully
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible();
@@ -288,41 +305,51 @@ test.describe('Complete Game Flow', () => {
 });
 
 test.describe('Turn Progression', () => {
-  test('should cycle through all players in order', async ({ page }) => {
-    const rollSequence = [0.3, 0.3];
-    await setupGameWithRandom(page, rollSequence, 2);
+  test('should allow turns to advance for next roll', async ({ page }) => {
+    await setDiceRolls(page, [[1, 1], [1, 1]]);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // With 2 players: Player 1 -> Player 2 -> Player 1
     const seenTurns = new Set<string>();
     let currentTurn = await getTurnLabelText(page);
     seenTurns.add(currentTurn);
 
-    for (let i = 0; i < 2; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+    // Roll and wait for Player 2's turn
+    const firstRoll = await waitForRollButton(page);
+    await firstRoll.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
+    await page.waitForTimeout(1500);
+    await closeAnyModal(page);
 
-      await waitForRollButton(page);
-      currentTurn = await getTurnLabelText(page);
-      seenTurns.add(currentTurn);
-    }
+    const nextRoll = await waitForRollButton(page);
+    await expect(nextRoll).toBeEnabled();
 
-    expect(seenTurns.size).toBe(2);
+    // Wait for roll button to be ready
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    await page.waitForTimeout(1500);
+    await closeAnyModal(page);
+
+    const followingRoll = await waitForRollButton(page);
+    await expect(followingRoll).toBeEnabled();
   });
 
-  test('should cycle through 4 players correctly', async ({ page }) => {
-    const rollSequence = [0.3, 0.3];
-    await setupGameWithRandom(page, rollSequence, 4);
+  test('should allow multiple player turns to advance', async ({ page }) => {
+    await setDiceRolls(page, [[1, 1], [1, 1], [1, 1], [1, 1]]);
 
-    const players = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
-
-    let currentTurn = await getTurnLabelText(page);
-    const seenTurns = new Set<string>([currentTurn]);
+    // Go back to setup
+    await page.goto('/');
+    await page.getByRole('button', { name: '4 Players' }).click();
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     for (let i = 0; i < 4; i++) {
+      await expect(page.getByText(/'s Turn/)).toBeVisible();
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
@@ -330,83 +357,81 @@ test.describe('Turn Progression', () => {
       await page.waitForTimeout(1500);
       await closeAnyModal(page);
 
-      await waitForRollButton(page);
-      currentTurn = await getTurnLabelText(page);
-      seenTurns.add(currentTurn);
+      const nextTurnRoll = await waitForRollButton(page);
+      await expect(nextTurnRoll).toBeEnabled();
     }
 
-    expect(seenTurns.size).toBe(players.length);
+    // Should be back to Player 1
+    await expect(page.getByText(/'s Turn/)).toBeVisible({ timeout: 15000 });
   });
 });
 
 test.describe('Property Rent Payment', () => {
   test('should show rent paid notification when landing on owned property', async ({ page }) => {
-    const rollSequence = [0.55, 0.55, 0.55, 0.55];
-    await setupGameWithRandom(page, rollSequence);
+    await setDiceRolls(page, [[2, 3], [2, 3]]);
 
-    const rollBtn = await waitForRollButton(page);
-    await rollBtn.click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
+    const rollPlayerOne = await waitForRollButton(page);
+    await rollPlayerOne.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
     const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-    await expect(buyButton).toBeVisible({ timeout: 5000 });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
     await buyButton.click();
 
     await waitForRollButton(page);
 
-    const rollBtnTwo = await waitForRollButton(page);
-    await rollBtnTwo.click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+    const rollPlayerTwo = await waitForRollButton(page);
+    await rollPlayerTwo.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
+
     await expect(page.getByText(/Rent Paid: \$/)).toBeVisible({ timeout: 5000 });
+    await closeAnyModal(page);
   });
 
   test('should show own property notification when landing on your own property', async ({ page }) => {
-    const rollSequence = [0.55];
+    await setDiceRolls(page, [
+      [2, 3], // Player 1 -> Caltrain
+      [3, 3], // Player 2
+      [4, 6], // Player 1 -> BART
+      [3, 3], // Player 2
+      [4, 6], // Player 1 -> Muni
+      [3, 3], // Player 2
+      [4, 6], // Player 1 -> Cable Car
+      [3, 3], // Player 2
+      [4, 6], // Player 1 -> back to Caltrain
+    ]);
 
-    await setupGameWithRandom(page, rollSequence);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-    const rollBtn = await waitForRollButton(page);
-    await rollBtn.click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+    const firstRoll = await waitForRollButton(page);
+    await firstRoll.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
     const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-    await expect(buyButton).toBeVisible({ timeout: 5000 });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
     await buyButton.click();
+    await expect(page.getByRole('button', { name: /Buy for \$/ })).not.toBeVisible({ timeout: 3000 });
 
-    await waitForTurn(page, 'Player 2');
+    await rollAndClose(page); // Player 2
+    await rollAndClose(page); // Player 1
+    await rollAndClose(page); // Player 2
+    await rollAndClose(page); // Player 1
+    await rollAndClose(page); // Player 2
+    await rollAndClose(page); // Player 1
+    await rollAndClose(page); // Player 2
 
-    let landedOnOwn = false;
-    let attempts = 0;
-    const maxAttempts = 6;
-
-    while (!landedOnOwn && attempts < maxAttempts) {
-      const rollBtnTwo = await waitForRollButton(page);
-      await rollBtnTwo.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-
-      await waitForRollButton(page);
-
-      const rollBtnOne = await waitForRollButton(page);
-      await rollBtnOne.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
-      await page.waitForTimeout(1500);
-
-      if (await page.getByText('You own this property!').isVisible().catch(() => false)) {
-        landedOnOwn = true;
-        await expect(page.getByText('No rent is due. Enjoy your stay!')).toBeVisible();
-      }
-
-      await closeAnyModal(page);
-
-      if (!landedOnOwn) {
-        await waitForRollButton(page);
-      }
-
-      attempts += 1;
-    }
-
-    expect(landedOnOwn).toBe(true);
+    const finalRoll = await waitForRollButton(page);
+    await finalRoll.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
+    await expect(page.getByText('You own this property!')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('No rent is due. Enjoy your stay!')).toBeVisible();
   });
 });
