@@ -163,9 +163,8 @@ test.describe('Property Purchase', () => {
     const maxAttempts = 10;
 
     while (attempts < maxAttempts) {
-      await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeEnabled({ timeout: 10000 });
-
-      await page.getByRole('button', { name: 'Roll Dice' }).click();
+      const rollBtn = await waitForRollButton(page);
+      await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
       const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
@@ -177,7 +176,8 @@ test.describe('Property Purchase', () => {
         expect(buttonText).toMatch(/Buy for \$\d+/);
         break;
       } catch {
-        await page.waitForTimeout(2500);
+        await closeAnyModal(page);
+        await page.waitForTimeout(1500);
         attempts++;
       }
     }

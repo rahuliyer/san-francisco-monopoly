@@ -64,7 +64,7 @@ test.describe('Jail Mechanics', () => {
       if (await gtjLabel.isVisible({ timeout: 500 }).catch(() => false) && 
           await sentText.isVisible({ timeout: 500 }).catch(() => false)) {
         // Found it - verify and close
-        await expect(page.getByText('🔒')).toBeVisible();
+        await expect(page.getByText('🔒', { exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'Continue' }).click();
         return;
       }
