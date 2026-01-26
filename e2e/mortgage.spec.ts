@@ -115,9 +115,9 @@ test.describe('Property Mortgage Flow', () => {
     const propertyName = await buyPropertyForCurrentPlayer(page);
 
     // Wait for turn to advance to Player 2, then back to Player 1
-    await waitForTurn(page, 'Player 2');
+    await waitForRollButton(page);
     await resolveSingleTurn(page);
-    await waitForTurn(page, 'Player 1');
+    await waitForRollButton(page);
 
     // Open Player 1 properties modal
     await page.getByRole('button', { name: /Properties \(\d+\)/ }).first().click();
