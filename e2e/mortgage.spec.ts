@@ -23,6 +23,15 @@ async function closeAnyModal(page: Page) {
       return;
     }
   } catch { /* No modal */ }
+
+  try {
+    const closeButton = page.locator('button').filter({ has: page.locator('svg.lucide-x') }).first();
+    if (await closeButton.isVisible({ timeout: 500 })) {
+      await closeButton.click();
+      await page.waitForTimeout(500);
+      return;
+    }
+  } catch { /* No modal */ }
 }
 
 // Helper function to wait for roll button
@@ -79,10 +88,15 @@ async function buyPropertyForCurrentPlayer(page: Page): Promise<string> {
 async function resolveSingleTurn(page: Page) {
   const rollBtn = await waitForRollButton(page);
   await rollBtn.click();
-  await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
   await page.waitForTimeout(1500);
   await closeAnyModal(page);
+}
+
+async function waitForTurn(page: Page, playerName: string) {
+  await closeAnyModal(page);
+  await expect(page.getByText(`${playerName}'s Turn`)).toBeVisible({ timeout: 20000 });
 }
 
 test.describe('Property Mortgage Flow', () => {
@@ -96,9 +110,9 @@ test.describe('Property Mortgage Flow', () => {
     const propertyName = await buyPropertyForCurrentPlayer(page);
 
     // Wait for turn to advance to Player 2, then back to Player 1
-    await expect(page.getByText("Player 2's Turn")).toBeVisible({ timeout: 15000 });
+    await waitForTurn(page, 'Player 2');
     await resolveSingleTurn(page);
-    await expect(page.getByText("Player 1's Turn")).toBeVisible({ timeout: 15000 });
+    await waitForTurn(page, 'Player 1');
 
     // Open Player 1 properties modal
     await page.getByRole('button', { name: /Properties \(\d+\)/ }).first().click();
