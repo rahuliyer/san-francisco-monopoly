@@ -302,8 +302,8 @@ test.describe('Property Ownership Display', () => {
       await closeAnyModal(page);
       await page.waitForTimeout(1500);
 
-      // Properties that are owned should have an owner indicator (box-shadow style)
-      const ownedSpaces = page.locator('[style*="box-shadow: inset"]');
+      // Properties that are owned should have an owner indicator (box-shadow or ring-inset)
+      const ownedSpaces = page.locator('[style*="box-shadow: inset"], .ring-inset');
       await expect
         .poll(async () => ownedSpaces.count(), { timeout: 5000 })
         .toBeGreaterThanOrEqual(1);

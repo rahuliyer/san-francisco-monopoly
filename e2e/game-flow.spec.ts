@@ -1,5 +1,9 @@
 import { test, expect, Page } from '@playwright/test';
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
   try {
@@ -46,7 +50,7 @@ async function waitForRollButton(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(`${playerName}'s Turn`);
+  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['’]s Turn`));
   await expect
     .poll(async () => {
       await closeAnyModal(page);
@@ -55,17 +59,28 @@ async function waitForTurn(page: Page, playerName: string) {
     .toBe(true);
 }
 
-async function setupGameWithRandom(page: Page, sequence: number[]) {
-  await page.addInitScript((randomSequence) => {
-    let index = 0;
-    Math.random = () => {
-      const value = randomSequence[index % randomSequence.length];
-      index += 1;
-      return value;
-    };
-  }, sequence);
+async function setupGameWithRandom(page: Page, sequence: number[], playerCount = 2) {
+  await page.addInitScript({
+    content: `
+      (() => {
+        const sequence = ${JSON.stringify(sequence)};
+        let index = 0;
+        Math.random = () => {
+          const value = sequence[index % sequence.length];
+          index += 1;
+          return value;
+        };
+      })();
+    `,
+  });
 
   await page.goto('/');
+  if (playerCount === 3) {
+    await page.getByRole('button', { name: '3 Players' }).click();
+  }
+  if (playerCount === 4) {
+    await page.getByRole('button', { name: '4 Players' }).click();
+  }
   await page.getByRole('button', { name: 'Start Game' }).click();
   await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 }
@@ -216,16 +231,11 @@ test.describe('Complete Game Flow', () => {
 });
 
 test.describe('Turn Progression', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Start Game' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
-
   test('should cycle through all players in order', async ({ page }) => {
+    const rollSequence = [0.3, 0.3];
+    await setupGameWithRandom(page, rollSequence, 2);
+
     // With 2 players: Player 1 -> Player 2 -> Player 1
-    
-    // Player 1's turn
     await waitForTurn(page, 'Player 1');
 
     // Roll and wait for Player 2's turn
@@ -250,11 +260,8 @@ test.describe('Turn Progression', () => {
   });
 
   test('should cycle through 4 players correctly', async ({ page }) => {
-    // Go back to setup
-    await page.goto('/');
-    await page.getByRole('button', { name: '4 Players' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+    const rollSequence = [0.3, 0.3];
+    await setupGameWithRandom(page, rollSequence, 4);
 
     const players = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
     await waitForTurn(page, players[0]);

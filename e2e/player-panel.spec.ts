@@ -1,5 +1,9 @@
 import { test, expect, Page } from '@playwright/test';
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
   try {
@@ -46,7 +50,7 @@ async function waitForRollButton(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(`${playerName}'s Turn`);
+  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['’]s Turn`));
   await expect
     .poll(async () => {
       await closeAnyModal(page);

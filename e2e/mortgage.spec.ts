@@ -95,7 +95,7 @@ async function resolveSingleTurn(page: Page) {
 }
 
 async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(`${playerName}'s Turn`);
+  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['’]s Turn`));
   await expect
     .poll(async () => {
       await closeAnyModal(page);
