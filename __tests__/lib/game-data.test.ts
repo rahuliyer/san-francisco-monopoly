@@ -288,6 +288,17 @@ describe('rollDice', () => {
     // With 100 rolls, we should get multiple different combinations
     expect(results.size).toBeGreaterThan(10)
   })
+
+  it('should use test override when provided', () => {
+    const globalRef = globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }
+    globalRef.__TEST_DICE_ROLLS__ = [[6, 1]]
+
+    const result = rollDice()
+
+    expect(result).toEqual([6, 1])
+    expect(globalRef.__TEST_DICE_ROLLS__).toHaveLength(0)
+    delete globalRef.__TEST_DICE_ROLLS__
+  })
 })
 
 describe('getSpacesByColorGroup', () => {

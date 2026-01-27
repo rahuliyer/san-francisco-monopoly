@@ -13,6 +13,7 @@ interface BoardSpaceProps {
   isCorner?: boolean
   onClick?: () => void
   ownerColor?: string
+  houseCount?: number
 }
 
 // Check if this is a special space that should show an image
@@ -20,9 +21,10 @@ function isSpecialSpace(type: SpaceType): boolean {
   return ["go", "jail", "free-parking", "go-to-jail", "chance", "community-chest"].includes(type)
 }
 
-export function BoardSpace({ space, players, position, isCorner, onClick, ownerColor }: BoardSpaceProps) {
+export function BoardSpace({ space, players, position, isCorner, onClick, ownerColor, houseCount }: BoardSpaceProps) {
   const playersOnSpace = players.filter((p) => p.position === space.id)
   const colorBarColor = space.colorGroup ? COLOR_MAP[space.colorGroup] : undefined
+  const resolvedHouseCount = Math.max(0, houseCount ?? 0)
 
   const isVertical = position === "left" || position === "right"
   const hasSpecialImage = isSpecialSpace(space.type) && space.image
@@ -63,6 +65,22 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
           )}
           style={{ backgroundColor: colorBarColor }}
         />
+      )}
+
+      {/* Houses/Hotel marker */}
+      {space.type === "property" && resolvedHouseCount > 0 && (
+        <div className="pointer-events-none absolute right-1 top-1 z-20 flex flex-wrap gap-0.5">
+          {resolvedHouseCount >= 5 ? (
+            <span className="h-2 w-2 rounded-sm border border-white/80 bg-red-600 shadow-sm" />
+          ) : (
+            Array.from({ length: resolvedHouseCount }).map((_, index) => (
+              <span
+                key={`house-${space.id}-${index}`}
+                className="h-1.5 w-1.5 rounded-sm border border-white/80 bg-emerald-600 shadow-sm"
+              />
+            ))
+          )}
+        </div>
       )}
 
       {/* Space content */}

@@ -21,9 +21,10 @@ async function closeAnyModal(page: Page) {
   } catch { /* No modal */ }
 
   try {
-    const closeButton = page.locator('button').filter({ has: page.locator('svg.lucide-x') }).first();
-    if (await closeButton.isVisible({ timeout: 500 })) {
-      await closeButton.click();
+    const modal = page.locator('.fixed.inset-0.z-50');
+    const closeBtn = modal.locator('button').filter({ has: page.locator('svg.h-4.w-4') }).first();
+    if (await closeBtn.isVisible({ timeout: 500 })) {
+      await closeBtn.click();
       await page.waitForTimeout(500);
       return;
     }
@@ -43,6 +44,12 @@ async function waitForRollButton(page: Page) {
     return rollForDoubles;
   }
   return rollDice;
+}
+
+async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
+  await page.addInitScript((sequence) => {
+    (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }).__TEST_DICE_ROLLS__ = sequence;
+  }, rolls);
 }
 
 test.describe('Property Purchase', () => {
@@ -84,7 +91,7 @@ test.describe('Property Purchase', () => {
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
       // Check if buy button appears
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
@@ -97,7 +104,7 @@ test.describe('Property Purchase', () => {
       } catch {
         // Didn't land on a purchasable property, wait for next turn
         await closeAnyModal(page);
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
         attempts++;
       }
     }
@@ -148,7 +155,7 @@ test.describe('Property Purchase', () => {
     while (attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
       const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
 
@@ -160,7 +167,7 @@ test.describe('Property Purchase', () => {
         break;
       } catch {
         await closeAnyModal(page);
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
         attempts++;
       }
     }
@@ -178,9 +185,7 @@ test.describe('Property Purchase', () => {
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
-
-      await page.waitForTimeout(1200);
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
 
@@ -190,7 +195,7 @@ test.describe('Property Purchase', () => {
         boughtProperty = true;
       } catch {
         await closeAnyModal(page);
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
         attempts++;
       }
     }
@@ -217,13 +222,11 @@ test.describe('Property Purchase', () => {
 });
 
 test.describe('Property Ownership Display', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show owned property in player panel after purchase', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should show owned property in player panel after purchase', async ({ page }) => {
     let boughtProperty = false;
     let attempts = 0;
     const maxAttempts = 15;
@@ -231,9 +234,7 @@ test.describe('Property Ownership Display', () => {
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
-
-      await page.waitForTimeout(1200);
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
 
@@ -243,7 +244,7 @@ test.describe('Property Ownership Display', () => {
         boughtProperty = true;
       } catch {
         await closeAnyModal(page);
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
         attempts++;
       }
     }
@@ -259,45 +260,28 @@ test.describe('Property Ownership Display', () => {
   });
 
   test('should show owner indicator on property space on board', async ({ page }) => {
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 12;
+    await setDiceRolls(page, [[1, 2]]);
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      await page.waitForTimeout(1500);
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
 
-      try {
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(500);
-          continue;
-        }
-      } catch {
-        // Not a property
-      }
+    const propertyName = await page.locator('.fixed.inset-0.z-50 h2').first().textContent();
+    expect(propertyName).toBeTruthy();
+    await buyButton.click();
+    await expect(page.getByText('Title Deed')).not.toBeVisible({ timeout: 3000 });
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
-      attempts++;
-    }
-
-    if (boughtProperty) {
-      await closeAnyModal(page);
-      await page.waitForTimeout(1500);
-
-      // Properties that are owned should have an owner indicator (box-shadow or ring-inset)
-      const ownedSpaces = page.locator('[style*="box-shadow: inset"], .ring-inset');
-      await expect
-        .poll(async () => ownedSpaces.count(), { timeout: 5000 })
-        .toBeGreaterThanOrEqual(1);
-    }
+    const boardGrid = page.locator('.grid').first();
+    const boardSpaceLabel = boardGrid.getByText(propertyName!, { exact: true });
+    const boardSpace = boardSpaceLabel.locator('..').locator('..');
+    await expect(boardSpace).toHaveAttribute('style', /inset/);
   });
 });
 

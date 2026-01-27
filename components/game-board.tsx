@@ -7,9 +7,10 @@ interface GameBoardProps {
   players: Player[]
   onSpaceClick?: (space: Space) => void
   propertyOwners: Record<number, number>
+  propertyHouses?: Record<number, number>
 }
 
-export function GameBoard({ players, onSpaceClick, propertyOwners }: GameBoardProps) {
+export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouses }: GameBoardProps) {
   // Split board into sections
   const bottomRow = BOARD_SPACES.slice(0, 11).reverse() // GO to Jail (right to left)
   const leftColumn = BOARD_SPACES.slice(11, 20) // Dogpatch to Noe Valley (bottom to top)
@@ -24,6 +25,8 @@ export function GameBoard({ players, onSpaceClick, propertyOwners }: GameBoardPr
     }
     return undefined
   }
+
+  const getHouseCount = (spaceId: number) => propertyHouses?.[spaceId] ?? 0
 
   return (
     <div className="relative inline-block bg-emerald-100 p-1">
@@ -43,6 +46,7 @@ export function GameBoard({ players, onSpaceClick, propertyOwners }: GameBoardPr
               isCorner={index === 0 || index === 10}
               onClick={() => onSpaceClick?.(space)}
               ownerColor={getOwnerColor(space.id)}
+              houseCount={getHouseCount(space.id)}
             />
           </div>
         ))}
@@ -60,6 +64,7 @@ export function GameBoard({ players, onSpaceClick, propertyOwners }: GameBoardPr
               position="left"
               onClick={() => onSpaceClick?.(space)}
               ownerColor={getOwnerColor(space.id)}
+              houseCount={getHouseCount(space.id)}
             />
           </div>
         ))}
@@ -77,6 +82,7 @@ export function GameBoard({ players, onSpaceClick, propertyOwners }: GameBoardPr
               position="right"
               onClick={() => onSpaceClick?.(space)}
               ownerColor={getOwnerColor(space.id)}
+              houseCount={getHouseCount(space.id)}
             />
           </div>
         ))}
@@ -95,6 +101,7 @@ export function GameBoard({ players, onSpaceClick, propertyOwners }: GameBoardPr
               isCorner={index === 0 || index === 10}
               onClick={() => onSpaceClick?.(space)}
               ownerColor={getOwnerColor(space.id)}
+              houseCount={getHouseCount(space.id)}
             />
           </div>
         ))}

@@ -23,6 +23,13 @@ interface PropertyCardProps {
   isOwnProperty?: boolean
   rentPaid?: number
   currentPlayerName?: string
+  houseCount?: number
+  canManageHouses?: boolean
+  canBuildHouse?: boolean
+  canBuildHotel?: boolean
+  buildMessage?: string
+  onBuildHouse?: () => void
+  onBuildHotel?: () => void
 }
 
 export function PropertyCard({ 
@@ -41,7 +48,14 @@ export function PropertyCard({
   unmortgageCost,
   isOwnProperty,
   rentPaid,
-  currentPlayerName
+  currentPlayerName,
+  houseCount,
+  canManageHouses,
+  canBuildHouse,
+  canBuildHotel,
+  buildMessage,
+  onBuildHouse,
+  onBuildHotel
 }: PropertyCardProps) {
   const colorBarColor = space.colorGroup ? COLOR_MAP[space.colorGroup] : "#666"
   const resolvedUnmortgageCost =
@@ -51,6 +65,17 @@ export function PropertyCard({
     (canUnmortgage && onUnmortgage && resolvedUnmortgageCost !== undefined)
   const showContinueButton =
     isOwnProperty || rentPaid !== undefined || (isMortgaged && owner !== undefined)
+  const resolvedHouseCount = Math.max(0, houseCount ?? 0)
+  const buildingStatus =
+    resolvedHouseCount >= 5
+      ? "Hotel"
+      : resolvedHouseCount > 0
+        ? `${resolvedHouseCount} House${resolvedHouseCount === 1 ? "" : "s"}`
+        : "None"
+  const showBuildButton = canManageHouses && space.type === "property" && !!space.houseCost && resolvedHouseCount < 5
+  const buildButtonLabel = resolvedHouseCount >= 4 ? "Build Hotel" : "Build House"
+  const buildButtonDisabled = resolvedHouseCount >= 4 ? !canBuildHotel : !canBuildHouse
+  const buildAction = resolvedHouseCount >= 4 ? onBuildHotel ?? onBuildHouse : onBuildHouse
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -166,6 +191,32 @@ export function PropertyCard({
                 <span className="text-stone-600">Mortgage Value</span>
                 <span className="font-medium">${space.mortgage}</span>
               </div>
+            </div>
+          )}
+
+          {space.type === "property" && (
+            <div className="mt-3 rounded border border-stone-200 bg-stone-50 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-600">Buildings</span>
+                <span className="font-medium text-stone-800">{buildingStatus}</span>
+              </div>
+              {showBuildButton && (
+                <div className="mt-2 space-y-2">
+                  <Button
+                    onClick={buildAction}
+                    disabled={buildButtonDisabled || !buildAction}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {buildButtonLabel} (${space.houseCost})
+                  </Button>
+                  {buildMessage && (
+                    <p className="text-xs text-stone-500">{buildMessage}</p>
+                  )}
+                </div>
+              )}
+              {!showBuildButton && buildMessage && (
+                <p className="mt-2 text-xs text-stone-500">{buildMessage}</p>
+              )}
             </div>
           )}
 
