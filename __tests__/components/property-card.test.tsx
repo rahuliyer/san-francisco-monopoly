@@ -135,8 +135,21 @@ describe('PropertyCard component', () => {
       
       expect(screen.getByText('$25')).toBeInTheDocument()
       expect(screen.getByText('$50')).toBeInTheDocument()
-      expect(screen.getByText('$100')).toBeInTheDocument()
+      expect(screen.getAllByText('$100').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('$200')).toBeInTheDocument()
+    })
+
+    it('should display mortgage value for railroads', () => {
+      render(
+        <PropertyCard
+          space={railroadSpace}
+          onClose={mockOnClose}
+        />
+      )
+
+      expect(screen.getByText('Mortgage Value')).toBeInTheDocument()
+      const mortgageValues = screen.getAllByText(`$${railroadSpace.mortgage}`)
+      expect(mortgageValues.length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -151,6 +164,18 @@ describe('PropertyCard component', () => {
       
       expect(screen.getByText(/4x the dice roll/i)).toBeInTheDocument()
       expect(screen.getByText(/10x the dice roll/i)).toBeInTheDocument()
+    })
+
+    it('should display mortgage value for utilities', () => {
+      render(
+        <PropertyCard
+          space={utilitySpace}
+          onClose={mockOnClose}
+        />
+      )
+
+      expect(screen.getByText('Mortgage Value')).toBeInTheDocument()
+      expect(screen.getByText(`$${utilitySpace.mortgage}`)).toBeInTheDocument()
     })
   })
 
@@ -220,6 +245,86 @@ describe('PropertyCard component', () => {
       
       fireEvent.click(screen.getByRole('button', { name: /buy/i }))
       expect(mockOnBuy).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('Mortgage actions', () => {
+    const mockOnMortgage = jest.fn()
+    const mockOnUnmortgage = jest.fn()
+
+    it('should show mortgage button when canMortgage is true', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onMortgage={mockOnMortgage}
+          canMortgage={true}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /mortgage for \$30/i })).toBeInTheDocument()
+    })
+
+    it('should call onMortgage when mortgage button is clicked', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onMortgage={mockOnMortgage}
+          canMortgage={true}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /mortgage for/i }))
+      expect(mockOnMortgage).toHaveBeenCalledTimes(1)
+    })
+
+    it('should show disabled unmortgage button when player cannot afford', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onUnmortgage={mockOnUnmortgage}
+          canUnmortgage={true}
+          canAffordUnmortgage={false}
+          unmortgageCost={33}
+          isMortgaged={true}
+        />
+      )
+
+      const button = screen.getByRole('button', { name: /lift mortgage for \$33/i })
+      expect(button).toBeDisabled()
+    })
+
+    it('should show mortgaged status message', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          isMortgaged={true}
+        />
+      )
+
+      expect(screen.getByText(/mortgaged to the bank/i)).toBeInTheDocument()
+    })
+
+    it('should default unmortgage cost to 10% interest', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onUnmortgage={mockOnUnmortgage}
+          canUnmortgage={true}
+          isMortgaged={true}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /lift mortgage for \$33/i })).toBeInTheDocument()
     })
   })
 

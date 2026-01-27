@@ -13,6 +13,13 @@ interface PropertyCardProps {
   onBuy?: () => void
   onPass?: () => void
   canBuy?: boolean
+  onMortgage?: () => void
+  onUnmortgage?: () => void
+  canMortgage?: boolean
+  canUnmortgage?: boolean
+  canAffordUnmortgage?: boolean
+  isMortgaged?: boolean
+  unmortgageCost?: number
   isOwnProperty?: boolean
   rentPaid?: number
   currentPlayerName?: string
@@ -25,11 +32,25 @@ export function PropertyCard({
   onBuy, 
   onPass,
   canBuy,
+  onMortgage,
+  onUnmortgage,
+  canMortgage = false,
+  canUnmortgage = false,
+  canAffordUnmortgage = true,
+  isMortgaged = false,
+  unmortgageCost,
   isOwnProperty,
   rentPaid,
   currentPlayerName
 }: PropertyCardProps) {
   const colorBarColor = space.colorGroup ? COLOR_MAP[space.colorGroup] : "#666"
+  const resolvedUnmortgageCost =
+    unmortgageCost ?? (space.mortgage !== undefined ? Math.ceil(space.mortgage * 1.1) : undefined)
+  const showMortgageActions =
+    (canMortgage && onMortgage) ||
+    (canUnmortgage && onUnmortgage && resolvedUnmortgageCost !== undefined)
+  const showContinueButton =
+    isOwnProperty || rentPaid !== undefined || (isMortgaged && owner !== undefined)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -139,6 +160,15 @@ export function PropertyCard({
             </div>
           )}
 
+          {space.mortgage !== undefined && space.type !== "property" && (
+            <div className="mt-3 border-t pt-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-stone-600">Mortgage Value</span>
+                <span className="font-medium">${space.mortgage}</span>
+              </div>
+            </div>
+          )}
+
           {/* Show when player lands on their own property */}
           {isOwnProperty && owner && (
             <div className="mt-3 rounded bg-emerald-100 p-3 text-center">
@@ -192,6 +222,36 @@ export function PropertyCard({
             </div>
           )}
 
+          {isMortgaged && (
+            <div className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-center">
+              <p className="text-sm font-medium text-amber-700">Mortgaged to the bank</p>
+              <p className="mt-1 text-xs text-amber-600">No rent is due while mortgaged.</p>
+            </div>
+          )}
+
+          {showMortgageActions && (
+            <div className="mt-4 space-y-2">
+              {canMortgage && onMortgage && (
+                <Button
+                  onClick={onMortgage}
+                  variant="outline"
+                  className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  Mortgage for ${space.mortgage}
+                </Button>
+              )}
+              {canUnmortgage && onUnmortgage && resolvedUnmortgageCost !== undefined && (
+                <Button
+                  onClick={onUnmortgage}
+                  disabled={!canAffordUnmortgage}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Lift Mortgage for ${resolvedUnmortgageCost}
+                </Button>
+              )}
+            </div>
+          )}
+
           {/* Buy and Pass buttons for unowned properties */}
           {canBuy && onBuy && (
             <div className="mt-4 flex gap-2">
@@ -205,7 +265,7 @@ export function PropertyCard({
           )}
 
           {/* Continue button for owned property scenarios */}
-          {(isOwnProperty || rentPaid !== undefined) && (
+          {showContinueButton && (
             <Button onClick={onClose} className="mt-4 w-full bg-stone-600 hover:bg-stone-700">
               Continue
             </Button>

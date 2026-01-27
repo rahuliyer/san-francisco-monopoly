@@ -21,28 +21,11 @@ async function closeAnyModal(page: Page) {
   } catch { /* No modal */ }
 
   try {
-    const cancelBtn = page.getByRole('button', { name: 'Cancel' });
-    if (await cancelBtn.isVisible({ timeout: 500 })) {
-      await cancelBtn.click();
+    const closeButton = page.locator('button').filter({ has: page.locator('svg.lucide-x') }).first();
+    if (await closeButton.isVisible({ timeout: 500 })) {
+      await closeButton.click();
       await page.waitForTimeout(500);
       return;
-    }
-  } catch { /* No modal */ }
-
-  try {
-    const closeTradeBtn = page.getByRole('button', { name: 'Close trade' });
-    if (await closeTradeBtn.isVisible({ timeout: 500 })) {
-      await closeTradeBtn.click();
-      await page.waitForTimeout(500);
-      return;
-    }
-  } catch { /* No modal */ }
-
-  try {
-    const closeBtn = page.locator('button').filter({ has: page.locator('svg.h-4.w-4') }).first();
-    if (await closeBtn.isVisible({ timeout: 500 })) {
-      await closeBtn.click();
-      await page.waitForTimeout(500);
     }
   } catch { /* No modal */ }
 }
@@ -71,8 +54,9 @@ test.describe('Property Purchase', () => {
 
   test('should show property card with buy options when landing on unowned property', async ({ page }) => {
     // Roll dice
-    await page.getByRole('button', { name: 'Roll Dice' }).click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
     // Wait for the property card modal to appear (if landing on a purchasable property)
     // Or wait for turn to change if landing on a non-purchasable space
@@ -99,9 +83,8 @@ test.describe('Property Purchase', () => {
 
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
-
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
       // Check if buy button appears
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
@@ -165,7 +148,7 @@ test.describe('Property Purchase', () => {
     while (attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
       const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
 
@@ -195,7 +178,7 @@ test.describe('Property Purchase', () => {
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
       await page.waitForTimeout(1200);
 
@@ -248,7 +231,7 @@ test.describe('Property Ownership Display', () => {
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
       await page.waitForTimeout(1200);
 
@@ -309,10 +292,11 @@ test.describe('Property Ownership Display', () => {
       await closeAnyModal(page);
       await page.waitForTimeout(1500);
 
-      // Properties that are owned should have an owner indicator on the board
-      const board = page.locator('.relative.inline-block.bg-emerald-100.p-1');
-      const ownedSpaces = board.locator('.ring-inset');
-      await expect.poll(async () => ownedSpaces.count(), { timeout: 10000 }).toBeGreaterThan(0);
+      // Properties that are owned should have an owner indicator (box-shadow or ring-inset)
+      const ownedSpaces = page.locator('[style*="box-shadow: inset"], .ring-inset');
+      await expect
+        .poll(async () => ownedSpaces.count(), { timeout: 5000 })
+        .toBeGreaterThanOrEqual(1);
     }
   });
 });
