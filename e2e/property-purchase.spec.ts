@@ -83,14 +83,8 @@ test.describe('Property Purchase', () => {
 
     while (!boughtProperty && attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
-<<<<<<< HEAD
-
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-=======
       await rollBtn.click();
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
->>>>>>> c953a6f (Stabilize Playwright turn and rent tests)
 
       // Check if buy button appears
       const buyButton = page.getByRole('button', { name: /Buy for \$/ });
@@ -154,11 +148,7 @@ test.describe('Property Purchase', () => {
     while (attempts < maxAttempts) {
       const rollBtn = await waitForRollButton(page);
       await rollBtn.click();
-<<<<<<< HEAD
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-=======
       await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
->>>>>>> c953a6f (Stabilize Playwright turn and rent tests)
 
       const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
 
