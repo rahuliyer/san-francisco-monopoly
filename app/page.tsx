@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { GameSetup } from "@/components/game-setup"
 import { GameBoard } from "@/components/game-board"
 import { PlayerPanel } from "@/components/player-panel"
@@ -1023,6 +1023,37 @@ export default function MonopolyGame() {
   const handleClosePlayerProperties = useCallback(() => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: null }))
   }, [])
+
+  // Handle Escape key to close any open dialog
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (isTradeOpen) {
+          handleCloseTrade()
+        } else if (gameState.viewingPropertiesForPlayer) {
+          handleClosePlayerProperties()
+        } else if (gameState.selectedSpace) {
+          handleCloseCard()
+        } else if (gameState.specialSpace) {
+          handleCloseSpecialCard()
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [
+    isTradeOpen,
+    gameState.viewingPropertiesForPlayer,
+    gameState.selectedSpace,
+    gameState.specialSpace,
+    handleCloseTrade,
+    handleClosePlayerProperties,
+    handleCloseCard,
+    handleCloseSpecialCard,
+  ])
 
   if (!gameStarted) {
     return <GameSetup onStartGame={handleStartGame} />
