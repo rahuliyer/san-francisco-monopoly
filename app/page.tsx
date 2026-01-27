@@ -7,6 +7,7 @@ import { PlayerPanel } from "@/components/player-panel"
 import { GameControls } from "@/components/game-controls"
 import { PropertyCard } from "@/components/property-card"
 import { SpecialSpaceCard } from "@/components/special-space-card"
+import { TradeModal, type TradePayload } from "@/components/trade-modal"
 import {
   Player,
   Space,
@@ -70,6 +71,7 @@ export default function MonopolyGame() {
     rentPaid: undefined,
     viewingPropertiesForPlayer: null,
   })
+  const [isTradeOpen, setIsTradeOpen] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
@@ -92,6 +94,7 @@ export default function MonopolyGame() {
   }, [])
 
   const handleEndTurn = useCallback(() => {
+    setIsTradeOpen(false)
     setGameState((prev) => {
       const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
       const nextPlayerName = prev.players[nextPlayerIndex].name
@@ -133,6 +136,115 @@ export default function MonopolyGame() {
     
     addLog(`${currentPlayer.name} paid $50 to leave Alcatraz`)
   }, [gameState.players, gameState.currentPlayerIndex, addLog])
+
+  const handleOpenTrade = useCallback(() => {
+    setIsTradeOpen(true)
+  }, [])
+
+  const handleCloseTrade = useCallback(() => {
+    setIsTradeOpen(false)
+  }, [])
+
+  const handleTrade = useCallback((trade: TradePayload) => {
+    let logMessage = ""
+    let tradeApplied = false
+
+    setGameState((prev) => {
+      const currentPlayer = prev.players[prev.currentPlayerIndex]
+      const partnerIndex = prev.players.findIndex((player) => player.id === trade.partnerId)
+      if (partnerIndex === -1 || currentPlayer.id === trade.partnerId) {
+        return prev
+      }
+
+      const partner = prev.players[partnerIndex]
+      const offeredCash = trade.offerCash
+      const requestedCash = trade.requestCash
+
+      if (offeredCash > currentPlayer.money || requestedCash > partner.money) {
+        return prev
+      }
+
+      const validOfferPropertyIds = trade.offerPropertyIds.filter(
+        (propertyId) => prev.propertyOwners[propertyId] === currentPlayer.id
+      )
+      const validRequestPropertyIds = trade.requestPropertyIds.filter(
+        (propertyId) => prev.propertyOwners[propertyId] === partner.id
+      )
+
+      if (
+        validOfferPropertyIds.length === 0 &&
+        validRequestPropertyIds.length === 0 &&
+        offeredCash === 0 &&
+        requestedCash === 0
+      ) {
+        return prev
+      }
+
+      const updatedPropertyOwners = { ...prev.propertyOwners }
+      validOfferPropertyIds.forEach((propertyId) => {
+        updatedPropertyOwners[propertyId] = partner.id
+      })
+      validRequestPropertyIds.forEach((propertyId) => {
+        updatedPropertyOwners[propertyId] = currentPlayer.id
+      })
+
+      const propertiesByPlayer: Record<number, number[]> = {}
+      Object.entries(updatedPropertyOwners).forEach(([spaceId, ownerId]) => {
+        const owner = Number(ownerId)
+        if (!propertiesByPlayer[owner]) {
+          propertiesByPlayer[owner] = []
+        }
+        propertiesByPlayer[owner].push(Number(spaceId))
+      })
+
+      const updatedPlayers = prev.players.map((player) => {
+        let cashDelta = 0
+        if (player.id === currentPlayer.id) {
+          cashDelta = -offeredCash + requestedCash
+        } else if (player.id === partner.id) {
+          cashDelta = -requestedCash + offeredCash
+        }
+        return {
+          ...player,
+          money: player.money + cashDelta,
+          properties: propertiesByPlayer[player.id] || [],
+        }
+      })
+
+      const describeItems = (propertyIds: number[], cashAmount: number) => {
+        const names = propertyIds
+          .map((propertyId) => BOARD_SPACES.find((space) => space.id === propertyId)?.name)
+          .filter(Boolean) as string[]
+        const items: string[] = []
+        if (names.length > 0) {
+          items.push(names.join(", "))
+        }
+        if (cashAmount > 0) {
+          items.push(`$${cashAmount}`)
+        }
+        return items.length > 0 ? items.join(" + ") : "no assets"
+      }
+
+      logMessage = `${currentPlayer.name} traded with ${partner.name}: gave ${describeItems(
+        validOfferPropertyIds,
+        offeredCash
+      )} for ${describeItems(validRequestPropertyIds, requestedCash)}.`
+      tradeApplied = true
+
+      return {
+        ...prev,
+        players: updatedPlayers,
+        propertyOwners: updatedPropertyOwners,
+      }
+    })
+
+    if (tradeApplied) {
+      if (logMessage) {
+        addLog(logMessage)
+      }
+      setIsTradeOpen(false)
+    }
+  }, [addLog])
 
   const handleRoll = useCallback(() => {
     // Clear any pending end turn timeout
@@ -715,6 +827,15 @@ export default function MonopolyGame() {
     gameState.hasRolled &&
     currentPlayer.money >= gameState.selectedSpace.price
 
+  const tradeDisabled =
+    isTradeOpen ||
+    gameState.rolling ||
+    gameState.awaitingPropertyDecision ||
+    gameState.awaitingSpecialSpace ||
+    gameState.selectedSpace !== null ||
+    gameState.specialSpace !== null ||
+    gameState.viewingPropertiesForPlayer !== null ||
+    gameState.players.length < 2
   const playerPanelColumnsClass =
     gameState.players.length === 2
       ? "md:grid-cols-2"
@@ -758,6 +879,8 @@ export default function MonopolyGame() {
           jailTurns={currentPlayer.jailTurns}
           onPayJailFee={handlePayJailFee}
           canAffordJailFee={currentPlayer.money >= 50}
+          onTrade={handleOpenTrade}
+          tradeDisabled={tradeDisabled}
         />
       </div>
 
@@ -874,6 +997,16 @@ export default function MonopolyGame() {
           space={gameState.specialSpace}
           onClose={handleCloseSpecialCard}
           drawnCard={gameState.drawnCard}
+        />
+      )}
+
+      {isTradeOpen && (
+        <TradeModal
+          currentPlayer={currentPlayer}
+          players={gameState.players}
+          propertyOwners={gameState.propertyOwners}
+          onClose={handleCloseTrade}
+          onSubmit={handleTrade}
         />
       )}
     </main>

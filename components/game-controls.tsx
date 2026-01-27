@@ -13,6 +13,8 @@ interface GameControlsProps {
   jailTurns?: number
   onPayJailFee?: () => void
   canAffordJailFee?: boolean
+  onTrade?: () => void
+  tradeDisabled?: boolean
 }
 
 export function GameControls({
@@ -25,6 +27,8 @@ export function GameControls({
   jailTurns = 0,
   onPayJailFee,
   canAffordJailFee = true,
+  onTrade,
+  tradeDisabled = false,
 }: GameControlsProps) {
   const isLastJailTurn = isInJail && jailTurns >= 2
 
@@ -65,35 +69,48 @@ export function GameControls({
         </div>
       )}
 
-      {isInJail && !hasRolled ? (
-        <div className="flex flex-col gap-2 w-full">
+      <div className="flex w-full flex-col gap-2">
+        {isInJail && !hasRolled ? (
+          <>
+            <Button
+              onClick={onRoll}
+              disabled={rolling}
+              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 w-full"
+            >
+              {rolling ? "Rolling..." : "Roll for Doubles"}
+            </Button>
+            {onPayJailFee && (
+              <Button
+                onClick={onPayJailFee}
+                disabled={!canAffordJailFee || rolling || hasRolled}
+                variant="outline"
+                className="w-full border-red-300 text-red-700 hover:bg-red-50"
+              >
+                Pay $50 to Leave
+              </Button>
+            )}
+          </>
+        ) : (
           <Button
             onClick={onRoll}
-            disabled={rolling}
-            className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 w-full"
+            disabled={hasRolled || rolling}
+            className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50"
           >
-            {rolling ? "Rolling..." : "Roll for Doubles"}
+            {rolling ? "Rolling..." : "Roll Dice"}
           </Button>
-          {onPayJailFee && (
-            <Button
-              onClick={onPayJailFee}
-              disabled={!canAffordJailFee || rolling || hasRolled}
-              variant="outline"
-              className="w-full border-red-300 text-red-700 hover:bg-red-50"
-            >
-              Pay $50 to Leave
-            </Button>
-          )}
-        </div>
-      ) : (
-        <Button
-          onClick={onRoll}
-          disabled={hasRolled || rolling}
-          className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50"
-        >
-          {rolling ? "Rolling..." : "Roll Dice"}
-        </Button>
-      )}
+        )}
+
+        {onTrade && (
+          <Button
+            onClick={onTrade}
+            disabled={tradeDisabled}
+            variant="outline"
+            className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          >
+            Trade
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

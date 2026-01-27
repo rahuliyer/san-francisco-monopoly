@@ -85,6 +85,26 @@ describe('GameControls component', () => {
     expect(diceContainer).toBeInTheDocument()
   })
 
+  describe('trade button', () => {
+    it('should render Trade button when onTrade is provided', () => {
+      render(<GameControls {...defaultProps} onTrade={jest.fn()} />)
+      expect(screen.getByRole('button', { name: /trade/i })).toBeInTheDocument()
+    })
+
+    it('should call onTrade when Trade button is clicked', () => {
+      const onTrade = jest.fn()
+      render(<GameControls {...defaultProps} onTrade={onTrade} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /trade/i }))
+      expect(onTrade).toHaveBeenCalledTimes(1)
+    })
+
+    it('should disable Trade button when tradeDisabled is true', () => {
+      render(<GameControls {...defaultProps} onTrade={jest.fn()} tradeDisabled={true} />)
+      expect(screen.getByRole('button', { name: /trade/i })).toBeDisabled()
+    })
+  })
+
   // Jail-related tests
   describe('when player is in jail', () => {
     const jailProps = {
