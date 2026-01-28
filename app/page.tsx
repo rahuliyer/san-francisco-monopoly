@@ -173,6 +173,12 @@ export default function MonopolyGame() {
 
   // Check for bankruptcy and handle player elimination
   const checkBankruptcy = useCallback((playerIndex: number, creditorIndex?: number) => {
+    // Clear any pending turn timeouts to prevent turn skip issues
+    if (endTurnTimeoutRef.current) {
+      clearTimeout(endTurnTimeoutRef.current)
+      endTurnTimeoutRef.current = null
+    }
+
     setGameState((prev) => {
       const player = prev.players[playerIndex]
       if (player.money >= 0) return prev
@@ -238,10 +244,14 @@ export default function MonopolyGame() {
           currentPlayerIndex: 0,
           gameOver: true,
           winner: finalPlayers[0],
+          hasRolled: false,
+          canRollAgain: false,
+          doublesCount: 0,
         }
       }
 
       setTimeout(() => addLog(`${player.name} is bankrupt and eliminated!`), 0)
+      setTimeout(() => addLog(`${finalPlayers[newCurrentPlayerIndex].name}'s turn`), 0)
 
       return {
         ...prev,
@@ -250,6 +260,15 @@ export default function MonopolyGame() {
         mortgagedProperties: updatedMortgagedProperties,
         propertyHouses: updatedPropertyHouses,
         currentPlayerIndex: newCurrentPlayerIndex,
+        // Reset turn state so next player can roll
+        hasRolled: false,
+        canRollAgain: false,
+        doublesCount: 0,
+        awaitingPropertyDecision: false,
+        awaitingSpecialSpace: false,
+        selectedSpace: null,
+        specialSpace: null,
+        drawnCard: null,
       }
     })
   }, [addLog])
@@ -1278,6 +1297,11 @@ export default function MonopolyGame() {
           </p>
           <button
             onClick={() => {
+              // Clear any pending timeouts to prevent crashes
+              if (endTurnTimeoutRef.current) {
+                clearTimeout(endTurnTimeoutRef.current)
+                endTurnTimeoutRef.current = null
+              }
               setGameStarted(false)
               setGameState({
                 players: [],
