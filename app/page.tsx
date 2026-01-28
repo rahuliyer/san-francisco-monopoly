@@ -88,6 +88,10 @@ interface GameState {
   isOwnProperty: boolean
   rentPaid: number | undefined
   viewingPropertiesForPlayer: Player | null
+  doublesCount: number
+  canRollAgain: boolean
+  gameOver: boolean
+  winner: Player | null
 }
 
 export default function MonopolyGame() {
@@ -111,6 +115,10 @@ export default function MonopolyGame() {
     isOwnProperty: false,
     rentPaid: undefined,
     viewingPropertiesForPlayer: null,
+    doublesCount: 0,
+    canRollAgain: false,
+    gameOver: false,
+    winner: null,
   })
   const [isTradeOpen, setIsTradeOpen] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -141,7 +149,8 @@ export default function MonopolyGame() {
   const handleEndTurn = useCallback(() => {
     setIsTradeOpen(false)
     setGameState((prev) => {
-      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
+      // Find next active (non-bankrupt) player
+      let nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
       const nextPlayerName = prev.players[nextPlayerIndex].name
       // Schedule the log message after state update
       setTimeout(() => addLog(`${nextPlayerName}'s turn`), 0)
@@ -156,9 +165,111 @@ export default function MonopolyGame() {
         drawnCard: null,
         isOwnProperty: false,
         rentPaid: undefined,
+        doublesCount: 0,
+        canRollAgain: false,
       }
     })
   }, [addLog])
+
+  // Check for bankruptcy and handle player elimination
+  const checkBankruptcy = useCallback((playerIndex: number, creditorIndex?: number) => {
+    setGameState((prev) => {
+      const player = prev.players[playerIndex]
+      if (player.money >= 0) return prev
+
+      // Player is bankrupt - eliminate them
+      const updatedPlayers = prev.players.filter((_, idx) => idx !== playerIndex)
+
+      // Transfer properties back to unowned (or to creditor if specified)
+      const updatedPropertyOwners = { ...prev.propertyOwners }
+      const updatedMortgagedProperties = { ...prev.mortgagedProperties }
+      const updatedPropertyHouses = { ...prev.propertyHouses }
+
+      Object.entries(prev.propertyOwners).forEach(([spaceId, ownerId]) => {
+        if (ownerId === playerIndex) {
+          if (creditorIndex !== undefined && creditorIndex !== playerIndex) {
+            // Transfer to creditor (adjust for player removal)
+            const adjustedCreditorIndex = creditorIndex > playerIndex ? creditorIndex - 1 : creditorIndex
+            updatedPropertyOwners[Number(spaceId)] = adjustedCreditorIndex
+          } else {
+            // Remove from ownership
+            delete updatedPropertyOwners[Number(spaceId)]
+            delete updatedMortgagedProperties[Number(spaceId)]
+            delete updatedPropertyHouses[Number(spaceId)]
+          }
+        } else if (ownerId > playerIndex) {
+          // Adjust owner indices for remaining players
+          updatedPropertyOwners[Number(spaceId)] = ownerId - 1
+        }
+      })
+
+      // Update player properties arrays
+      const propertiesByPlayer: Record<number, number[]> = {}
+      Object.entries(updatedPropertyOwners).forEach(([spaceId, ownerId]) => {
+        if (!propertiesByPlayer[ownerId]) {
+          propertiesByPlayer[ownerId] = []
+        }
+        propertiesByPlayer[ownerId].push(Number(spaceId))
+      })
+
+      const finalPlayers = updatedPlayers.map((p, idx) => ({
+        ...p,
+        id: idx,
+        properties: propertiesByPlayer[idx] || [],
+      }))
+
+      // Adjust current player index if needed
+      let newCurrentPlayerIndex = prev.currentPlayerIndex
+      if (playerIndex < prev.currentPlayerIndex) {
+        newCurrentPlayerIndex = prev.currentPlayerIndex - 1
+      } else if (playerIndex === prev.currentPlayerIndex) {
+        newCurrentPlayerIndex = prev.currentPlayerIndex % finalPlayers.length
+      }
+
+      // Check for game end
+      if (finalPlayers.length === 1) {
+        setTimeout(() => addLog(`${finalPlayers[0].name} wins the game!`), 0)
+        return {
+          ...prev,
+          players: finalPlayers,
+          propertyOwners: updatedPropertyOwners,
+          mortgagedProperties: updatedMortgagedProperties,
+          propertyHouses: updatedPropertyHouses,
+          currentPlayerIndex: 0,
+          gameOver: true,
+          winner: finalPlayers[0],
+        }
+      }
+
+      setTimeout(() => addLog(`${player.name} is bankrupt and eliminated!`), 0)
+
+      return {
+        ...prev,
+        players: finalPlayers,
+        propertyOwners: updatedPropertyOwners,
+        mortgagedProperties: updatedMortgagedProperties,
+        propertyHouses: updatedPropertyHouses,
+        currentPlayerIndex: newCurrentPlayerIndex,
+      }
+    })
+  }, [addLog])
+
+  // Handle continuing turn after doubles (reset hasRolled to allow another roll)
+  const handleContinueTurn = useCallback(() => {
+    setGameState((prev) => ({
+      ...prev,
+      hasRolled: false,
+      canRollAgain: false,
+      diceValues: getRandomInitialDice(),
+      awaitingPropertyDecision: false,
+      awaitingSpecialSpace: false,
+      selectedSpace: null,
+      specialSpace: null,
+      drawnCard: null,
+      isOwnProperty: false,
+      rentPaid: undefined,
+    }))
+  }, [])
 
   const handlePayJailFee = useCallback(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
@@ -526,6 +637,39 @@ export default function MonopolyGame() {
       }
 
       // Normal roll logic (not in jail)
+      // Track doubles - 3 consecutive doubles sends player to jail
+      const newDoublesCount = isDoubles ? gameState.doublesCount + 1 : 0
+
+      if (newDoublesCount >= 3) {
+        // 3 consecutive doubles - go to jail immediately
+        setGameState((prev) => {
+          const updatedPlayers = [...prev.players]
+          updatedPlayers[prev.currentPlayerIndex] = {
+            ...updatedPlayers[prev.currentPlayerIndex],
+            position: 10,
+            inJail: true,
+            jailTurns: 0,
+          }
+          return {
+            ...prev,
+            players: updatedPlayers,
+            diceValues: dice,
+            hasRolled: true,
+            rolling: false,
+            doublesCount: 0,
+            canRollAgain: false,
+          }
+        })
+        addLog(`${currentPlayer.name} rolled doubles 3 times in a row!`)
+        addLog(`${currentPlayer.name} was sent to Alcatraz!`)
+
+        // End turn after showing the result
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 2000)
+        return
+      }
+
       // Calculate new position
       let newPosition = currentPlayer.position + total
       let passedGo = false
@@ -537,16 +681,20 @@ export default function MonopolyGame() {
 
       const landedSpace = BOARD_SPACES[newPosition]
 
+      // Determine if player can roll again (doubles, but not going to jail)
+      const willGoToJail = landedSpace.type === "go-to-jail"
+      const rollAgainAfterMove = isDoubles && !willGoToJail
+
       // Check if this is a purchasable space that is unowned
       const isPurchasable = landedSpace.type === "property" || landedSpace.type === "railroad" || landedSpace.type === "utility"
-      
+
       // Check if this is a special space that shows a modal
-      const isSpecialSpace = landedSpace.type === "chance" || 
-        landedSpace.type === "community-chest" || 
-        landedSpace.type === "go" || 
-        landedSpace.type === "jail" || 
-        landedSpace.type === "free-parking" || 
-        landedSpace.type === "go-to-jail" || 
+      const isSpecialSpace = landedSpace.type === "chance" ||
+        landedSpace.type === "community-chest" ||
+        landedSpace.type === "go" ||
+        landedSpace.type === "jail" ||
+        landedSpace.type === "free-parking" ||
+        landedSpace.type === "go-to-jail" ||
         landedSpace.type === "tax"
 
       // Calculate rent and update player state, but don't show dialog yet
@@ -631,6 +779,8 @@ export default function MonopolyGame() {
           awaitingSpecialSpace: false,
           isOwnProperty: calculatedIsOwnProperty,
           rentPaid: rentAmount,
+          doublesCount: newDoublesCount,
+          canRollAgain: rollAgainAfterMove,
         }
       })
 
@@ -669,6 +819,7 @@ export default function MonopolyGame() {
 
       // Log the roll
       let logMessage = `${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} = ${total}`
+      if (isDoubles) logMessage += " (doubles!)"
       if (passedGo) logMessage += " and passed GO (+$200)"
       addLog(logMessage)
       addLog(`Landed on ${landedSpace.name}`)
@@ -786,6 +937,13 @@ export default function MonopolyGame() {
           if (prev.awaitingPropertyDecision || prev.awaitingSpecialSpace) {
             // Player needs to interact with a modal - turn will end when modal closes
             return prev
+          } else if (prev.canRollAgain && !prev.players[prev.currentPlayerIndex].inJail) {
+            // Player rolled doubles and can roll again
+            addLog(`${prev.players[prev.currentPlayerIndex].name} rolled doubles - roll again!`)
+            endTurnTimeoutRef.current = setTimeout(() => {
+              handleContinueTurn()
+            }, 1500)
+            return prev
           } else {
             // Auto-end turn after a short delay (for non-interactive spaces)
             endTurnTimeoutRef.current = setTimeout(() => {
@@ -796,7 +954,7 @@ export default function MonopolyGame() {
         })
       }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY + 50) // Slightly after dialog appears
     }, 800)
-  }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
+  }, [gameState.players, gameState.currentPlayerIndex, gameState.doublesCount, addLog, handleEndTurn, handleContinueTurn])
 
   const handleSpaceClick = useCallback((space: Space) => {
     if (space.type === "property" || space.type === "railroad" || space.type === "utility") {
@@ -806,21 +964,29 @@ export default function MonopolyGame() {
 
   const handleCloseCard = useCallback(() => {
     setGameState((prev) => {
-      // If we were awaiting a property decision, end the turn after closing
+      // If we were awaiting a property decision, handle turn continuation
       if (prev.awaitingPropertyDecision) {
-        endTurnTimeoutRef.current = setTimeout(() => {
-          handleEndTurn()
-        }, 500)
+        if (prev.canRollAgain && !prev.players[prev.currentPlayerIndex].inJail) {
+          // Player rolled doubles - continue turn
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleContinueTurn()
+          }, 500)
+        } else {
+          // End turn
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleEndTurn()
+          }, 500)
+        }
       }
-      return { 
-        ...prev, 
-        selectedSpace: null, 
+      return {
+        ...prev,
+        selectedSpace: null,
         awaitingPropertyDecision: false,
         isOwnProperty: false,
         rentPaid: undefined,
       }
     })
-  }, [handleEndTurn])
+  }, [handleEndTurn, handleContinueTurn])
 
   const handlePassProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -829,29 +995,43 @@ export default function MonopolyGame() {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
     addLog(`${currentPlayer.name} passed on buying ${space.name}`)
 
-    setGameState((prev) => ({
-      ...prev,
-      selectedSpace: null,
-      awaitingPropertyDecision: false,
-    }))
-    
-    // End turn after passing
-    endTurnTimeoutRef.current = setTimeout(() => {
-      handleEndTurn()
-    }, 500)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
-
-  const handleCloseSpecialCard = useCallback(() => {
     setGameState((prev) => {
-      // End the turn after closing the special space modal
-      if (prev.awaitingSpecialSpace) {
+      // Check if player can roll again (doubles)
+      if (prev.canRollAgain && !prev.players[prev.currentPlayerIndex].inJail) {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleContinueTurn()
+        }, 500)
+      } else {
         endTurnTimeoutRef.current = setTimeout(() => {
           handleEndTurn()
         }, 500)
       }
+      return {
+        ...prev,
+        selectedSpace: null,
+        awaitingPropertyDecision: false,
+      }
+    })
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn, handleContinueTurn])
+
+  const handleCloseSpecialCard = useCallback(() => {
+    setGameState((prev) => {
+      // Handle turn continuation after closing special space modal
+      if (prev.awaitingSpecialSpace) {
+        if (prev.canRollAgain && !prev.players[prev.currentPlayerIndex].inJail) {
+          // Player rolled doubles - continue turn
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleContinueTurn()
+          }, 500)
+        } else {
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleEndTurn()
+          }, 500)
+        }
+      }
       return { ...prev, specialSpace: null, awaitingSpecialSpace: false }
     })
-  }, [handleEndTurn])
+  }, [handleEndTurn, handleContinueTurn])
 
   const handleBuyProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -870,6 +1050,18 @@ export default function MonopolyGame() {
         money: updatedPlayers[prev.currentPlayerIndex].money - space.price!,
         properties: [...updatedPlayers[prev.currentPlayerIndex].properties, space.id],
       }
+
+      // Check if player can roll again (doubles)
+      if (prev.canRollAgain && !updatedPlayers[prev.currentPlayerIndex].inJail) {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleContinueTurn()
+        }, 500)
+      } else {
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 500)
+      }
+
       return {
         ...prev,
         players: updatedPlayers,
@@ -882,12 +1074,7 @@ export default function MonopolyGame() {
       }
     })
     addLog(`${currentPlayer.name} bought ${space.name} for $${space.price}`)
-    
-    // Auto-end turn after buying
-    endTurnTimeoutRef.current = setTimeout(() => {
-      handleEndTurn()
-    }, 500)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn, handleContinueTurn])
 
   const handleMortgageProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -1057,12 +1244,72 @@ export default function MonopolyGame() {
     handleCloseSpecialCard,
   ])
 
+  // Check for bankruptcy after any state change
+  useEffect(() => {
+    if (gameState.gameOver) return
+
+    // Find any player with negative money
+    const bankruptPlayerIndex = gameState.players.findIndex(p => p.money < 0)
+    if (bankruptPlayerIndex !== -1) {
+      checkBankruptcy(bankruptPlayerIndex)
+    }
+  }, [gameState.players, gameState.gameOver, checkBankruptcy])
+
   if (showSplash) {
     return <SplashScreen onPlay={() => setShowSplash(false)} />
   }
 
   if (!gameStarted) {
     return <GameSetup onStartGame={handleStartGame} />
+  }
+
+  // Show game over screen when there's a winner
+  if (gameState.gameOver && gameState.winner) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-emerald-100 p-4">
+        <div className="rounded-lg bg-white p-8 text-center shadow-xl">
+          <h1 className="mb-4 text-4xl font-bold text-emerald-800">Game Over!</h1>
+          <div className="mb-6 text-6xl">{gameState.winner.token}</div>
+          <h2 className="mb-2 text-2xl font-semibold text-stone-800">
+            {gameState.winner.name} Wins!
+          </h2>
+          <p className="mb-6 text-lg text-stone-600">
+            Final fortune: ${gameState.winner.money.toLocaleString()}
+          </p>
+          <button
+            onClick={() => {
+              setGameStarted(false)
+              setGameState({
+                players: [],
+                currentPlayerIndex: 0,
+                propertyOwners: {},
+                mortgagedProperties: {},
+                propertyHouses: {},
+                diceValues: getRandomInitialDice(),
+                hasRolled: false,
+                rolling: false,
+                selectedSpace: null,
+                specialSpace: null,
+                drawnCard: null,
+                gameLog: [],
+                awaitingPropertyDecision: false,
+                awaitingSpecialSpace: false,
+                isOwnProperty: false,
+                rentPaid: undefined,
+                viewingPropertiesForPlayer: null,
+                doublesCount: 0,
+                canRollAgain: false,
+                gameOver: false,
+                winner: null,
+              })
+            }}
+            className="rounded-lg bg-emerald-600 px-6 py-3 text-lg font-semibold text-white transition-colors hover:bg-emerald-700"
+          >
+            Play Again
+          </button>
+        </div>
+      </main>
+    )
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex]
