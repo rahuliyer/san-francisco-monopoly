@@ -4,15 +4,16 @@ test.describe('Game Board', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     // Wait for game to start
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
   test('should display the game board with SF MONOPOLY title', async ({ page }) => {
-    await expect(page.locator('text=SF').first()).toBeVisible();
+    // Art Deco styled title
+    await expect(page.locator('text=SAN FRANCISCO').first()).toBeVisible();
     await expect(page.locator('text=MONOPOLY').first()).toBeVisible();
-    await expect(page.getByText('The San Francisco Edition')).toBeVisible();
+    await expect(page.getByText('The City by the Bay Edition')).toBeVisible();
   });
 
   test('should display all four corners of the board', async ({ page }) => {
@@ -150,10 +151,10 @@ test.describe('Game Board', () => {
   });
 
   test('should display the game board center with logo', async ({ page }) => {
-    // The center of the board should have the SF MONOPOLY logo
+    // The center of the board should have the SAN FRANCISCO MONOPOLY logo (Art Deco styled)
     const centerArea = page.locator('.col-span-9.row-span-9');
     await expect(centerArea).toBeVisible();
-    await expect(centerArea.getByText('SF')).toBeVisible();
+    await expect(centerArea.getByText('SAN FRANCISCO')).toBeVisible();
     await expect(centerArea.getByText('MONOPOLY')).toBeVisible();
   });
 });

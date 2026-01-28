@@ -43,28 +43,29 @@ const faceRotations: Record<number, { x: number; y: number }> = {
 const CUBE_SIZE = 56 // 14 * 4 = 56px (h-14 w-14)
 const HALF_SIZE = CUBE_SIZE / 2
 
-// Single face component
-function DiceFace({ 
-  value, 
-  transform 
-}: { 
+// Single face component - Art Deco styled with ivory/cream colors
+function DiceFace({
+  value,
+  transform
+}: {
   value: number
   transform: string
 }) {
   return (
     <div
-      className="absolute flex items-center justify-center rounded-lg border-2 border-stone-300 bg-gradient-to-br from-white to-stone-100"
+      className="absolute flex items-center justify-center rounded-lg border-2 border-[#8B6914] bg-gradient-to-br from-[#faf6ee] to-[#e8dcc8]"
       style={{
         width: CUBE_SIZE,
         height: CUBE_SIZE,
         transform,
         backfaceVisibility: "hidden",
+        boxShadow: "inset 0 1px 2px rgba(212, 175, 55, 0.3)",
       }}
     >
       {dots[value]?.map((pos, i) => (
         <div
           key={i}
-          className="absolute rounded-full bg-stone-800"
+          className="absolute rounded-full bg-[#2c3e50]"
           style={{
             width: 10,
             height: 10,
@@ -208,9 +209,9 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
         />
       </div>
       
-      {/* Shadow */}
+      {/* Shadow - warm brown tint */}
       <div
-        className="absolute rounded-lg bg-black/20 blur-sm"
+        className="absolute rounded-lg bg-[#5c4a1f]/30 blur-sm"
         style={{
           width: CUBE_SIZE - 8,
           height: 8,

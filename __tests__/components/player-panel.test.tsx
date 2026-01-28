@@ -91,9 +91,10 @@ describe('PlayerPanel component', () => {
       />
     )
     const panel = container.firstChild
-    expect(panel).toHaveClass('border-amber-400')
+    // Art Deco styled border with golden color
+    expect(panel).toHaveClass('border-[#d4af37]')
     expect(panel).toHaveClass('ring-2')
-    expect(panel).toHaveClass('ring-amber-200')
+    expect(panel).toHaveClass('golden-glow')
   })
 
   it('should show jail status when player is in jail', () => {

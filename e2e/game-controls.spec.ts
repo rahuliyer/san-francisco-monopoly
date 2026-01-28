@@ -40,12 +40,13 @@ test.describe('Game Controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
   test('should display game controls container', async ({ page }) => {
-    const controlsContainer = page.locator('.flex.flex-col.items-center.gap-4.rounded-lg.bg-white.p-4.shadow-md');
+    // Game controls container has Art Deco styling with gradient background
+    const controlsContainer = page.locator('.flex.flex-col.items-center.gap-4.rounded-lg.p-4.shadow-md');
     await expect(controlsContainer).toBeVisible();
   });
 
@@ -100,7 +101,7 @@ test.describe('Jail Controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -172,18 +173,19 @@ test.describe('Game Controls Styling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
   test('should have amber-styled roll button', async ({ page }) => {
+    // Art Deco styled golden gradient button
     const rollButton = page.getByRole('button', { name: 'Roll Dice' });
-    await expect(rollButton).toHaveClass(/bg-amber-500/);
+    await expect(rollButton).toHaveClass(/from-\[#d4af37\]/);
   });
 
   test('should have shadow on game controls container', async ({ page }) => {
-    // The game controls container has shadow-md class and contains Turn info
-    const controlsContainer = page.locator('.flex.flex-col.items-center.gap-4.rounded-lg.bg-white.p-4.shadow-md');
+    // The game controls container has shadow-md class with Art Deco gradient background
+    const controlsContainer = page.locator('.flex.flex-col.items-center.gap-4.rounded-lg.p-4.shadow-md');
     await expect(controlsContainer).toBeVisible();
   });
 });

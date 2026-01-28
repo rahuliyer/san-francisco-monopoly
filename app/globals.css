@@ -3,40 +3,60 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Art Deco / Vintage Travel Poster Color Palette */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Warm cream background */
+  --background: oklch(0.95 0.02 85);
+  --foreground: oklch(0.25 0.04 45);
+
+  /* Card with warm ivory tones */
+  --card: oklch(0.97 0.015 85);
+  --card-foreground: oklch(0.25 0.04 45);
+
+  --popover: oklch(0.97 0.015 85);
+  --popover-foreground: oklch(0.25 0.04 45);
+
+  /* Primary - Deep teal/navy Art Deco accent */
+  --primary: oklch(0.35 0.08 220);
+  --primary-foreground: oklch(0.97 0.015 85);
+
+  /* Secondary - Warm sand */
+  --secondary: oklch(0.92 0.03 80);
+  --secondary-foreground: oklch(0.3 0.05 45);
+
+  /* Muted - Dusty rose/mauve */
+  --muted: oklch(0.88 0.02 60);
+  --muted-foreground: oklch(0.45 0.04 45);
+
+  /* Accent - Golden amber */
+  --accent: oklch(0.75 0.15 70);
+  --accent-foreground: oklch(0.25 0.04 45);
+
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.97 0.015 85);
+
+  /* Warm borders */
+  --border: oklch(0.85 0.04 70);
+  --input: oklch(0.9 0.03 75);
+  --ring: oklch(0.6 0.12 180);
+
+  /* Chart colors - Art Deco palette */
+  --chart-1: oklch(0.65 0.18 35);  /* Warm coral */
+  --chart-2: oklch(0.55 0.12 180); /* Deep teal */
+  --chart-3: oklch(0.75 0.15 70);  /* Golden amber */
+  --chart-4: oklch(0.5 0.1 280);   /* Dusty purple */
+  --chart-5: oklch(0.7 0.1 200);   /* Soft blue */
+
+  --radius: 0.5rem;
+
+  --sidebar: oklch(0.93 0.025 80);
+  --sidebar-foreground: oklch(0.25 0.04 45);
+  --sidebar-primary: oklch(0.35 0.08 220);
+  --sidebar-primary-foreground: oklch(0.97 0.015 85);
+  --sidebar-accent: oklch(0.88 0.03 75);
+  --sidebar-accent-foreground: oklch(0.3 0.05 45);
+  --sidebar-border: oklch(0.85 0.04 70);
+  --sidebar-ring: oklch(0.6 0.12 180);
 }
 
 .dark {
@@ -121,5 +141,68 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Georgia', 'Times New Roman', serif;
   }
+}
+
+/* Art Deco decorative elements */
+.art-deco-border {
+  border: 3px solid;
+  border-image: linear-gradient(
+    135deg,
+    oklch(0.6 0.12 180) 0%,
+    oklch(0.75 0.15 70) 25%,
+    oklch(0.6 0.12 180) 50%,
+    oklch(0.75 0.15 70) 75%,
+    oklch(0.6 0.12 180) 100%
+  ) 1;
+}
+
+.art-deco-corner {
+  position: relative;
+}
+
+.art-deco-corner::before,
+.art-deco-corner::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid oklch(0.75 0.15 70);
+}
+
+.art-deco-corner::before {
+  top: -5px;
+  left: -5px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.art-deco-corner::after {
+  bottom: -5px;
+  right: -5px;
+  border-left: none;
+  border-top: none;
+}
+
+/* Vintage paper texture effect */
+.vintage-paper {
+  background:
+    linear-gradient(135deg, transparent 40%, rgba(139, 69, 19, 0.03) 50%, transparent 60%),
+    linear-gradient(45deg, transparent 40%, rgba(139, 69, 19, 0.02) 50%, transparent 60%),
+    oklch(0.95 0.02 85);
+}
+
+/* Art Deco heading styles */
+.art-deco-heading {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* Golden glow effect */
+.golden-glow {
+  box-shadow:
+    0 0 20px rgba(212, 175, 55, 0.2),
+    0 0 40px rgba(212, 175, 55, 0.1);
 }

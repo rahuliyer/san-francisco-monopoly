@@ -156,7 +156,7 @@ export function TradeModal({
     idPrefix: string
   ) => {
     if (properties.length === 0) {
-      return <p className="text-sm text-stone-500">{emptyText}</p>
+      return <p className="text-sm text-[#5c4a1f] font-serif italic">{emptyText}</p>
     }
 
     return (
@@ -171,20 +171,20 @@ export function TradeModal({
               htmlFor={checkboxId}
               className={cn(
                 "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm transition-colors",
-                isSelected ? "border-emerald-400 bg-emerald-50" : "border-stone-200 hover:bg-stone-50"
+                isSelected ? "border-[#d4af37] bg-[#d4af37]/10" : "border-[#d4af37]/30 hover:bg-[#f5efe3]"
               )}
             >
               <input
                 id={checkboxId}
                 type="checkbox"
-                className="h-4 w-4"
+                className="h-4 w-4 accent-[#d4af37]"
                 checked={isSelected}
                 onChange={() => toggleProperty(space.id, selectedIds, setSelected)}
               />
               <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
-              <span className="font-medium text-stone-700">{space.name}</span>
+              <span className="font-serif font-medium text-[#2c3e50]">{space.name}</span>
               {space.price !== undefined && (
-                <span className="ml-auto text-xs text-stone-500">${space.price}</span>
+                <span className="ml-auto text-xs text-[#5c4a1f]">${space.price}</span>
               )}
             </label>
           )
@@ -195,32 +195,32 @@ export function TradeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative w-full max-w-4xl rounded-lg bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-4xl rounded-lg bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-6 shadow-xl border-2 border-[#8B6914]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-stone-800">Make a Trade</h2>
-            <p className="text-sm text-stone-500">
+            <h2 className="text-xl font-serif font-bold text-[#2c3e50]">Make a Trade</h2>
+            <p className="text-sm text-[#5c4a1f]">
               Swap properties, cash, or a mix to negotiate the best deal.
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close trade"
-            className="rounded-full p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-700"
+            className="rounded-full p-2 text-[#5c4a1f] hover:bg-[#d4af37]/10 hover:text-[#2c3e50]"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="mt-4">
-          <label htmlFor="trade-partner" className="text-sm font-medium text-stone-700">
+          <label htmlFor="trade-partner" className="text-sm font-serif font-medium text-[#5c4a1f]">
             Trade partner
           </label>
           <select
             id="trade-partner"
             value={partnerId}
             onChange={(event) => setPartnerId(Number(event.target.value))}
-            className="mt-1 w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-[#d4af37]/30 bg-[#faf6ee] px-3 py-2 text-sm font-serif text-[#2c3e50]"
             disabled={otherPlayers.length === 0}
           >
             {otherPlayers.length === 0 ? (
@@ -236,7 +236,7 @@ export function TradeModal({
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <section className="rounded-lg border border-stone-200 p-4">
+          <section className="rounded-lg border border-[#d4af37]/30 p-4 bg-[#faf6ee]">
             <div className="mb-3 flex items-center gap-2">
               <PlayerToken3D
                 icon={currentPlayer.token}
@@ -245,14 +245,14 @@ export function TradeModal({
                 size="sm"
               />
               <div>
-                <p className="text-xs uppercase text-stone-500">You give</p>
-                <p className="font-semibold text-stone-800">{currentPlayer.name}</p>
+                <p className="text-xs uppercase text-[#8B6914] font-serif">You give</p>
+                <p className="font-serif font-semibold text-[#2c3e50]">{currentPlayer.name}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <p className="text-xs font-semibold text-stone-500">Properties</p>
+                <p className="text-xs font-serif font-semibold text-[#8B6914]">Properties</p>
                 {renderPropertyList(
                   currentPlayerProperties,
                   offerPropertyIds,
@@ -263,7 +263,7 @@ export function TradeModal({
               </div>
 
               <div>
-                <label htmlFor="offer-cash" className="text-xs font-semibold text-stone-500">
+                <label htmlFor="offer-cash" className="text-xs font-serif font-semibold text-[#8B6914]">
                   Cash you give
                 </label>
                 <Input
@@ -275,15 +275,16 @@ export function TradeModal({
                   value={offerCashInput}
                   onChange={handleCashChange(setOfferCashInput)}
                   placeholder="0"
+                  className="border-[#d4af37]/30 bg-white font-serif"
                 />
-                <p className="mt-1 text-xs text-stone-500">
+                <p className="mt-1 text-xs text-[#5c4a1f]">
                   Available: ${currentPlayer.money.toLocaleString()}
                 </p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-lg border border-stone-200 p-4">
+          <section className="rounded-lg border border-[#d4af37]/30 p-4 bg-[#faf6ee]">
             <div className="mb-3 flex items-center gap-2">
               {partner ? (
                 <>
@@ -294,18 +295,18 @@ export function TradeModal({
                     size="sm"
                   />
                   <div>
-                    <p className="text-xs uppercase text-stone-500">You receive</p>
-                    <p className="font-semibold text-stone-800">{partner.name}</p>
+                    <p className="text-xs uppercase text-[#8B6914] font-serif">You receive</p>
+                    <p className="font-serif font-semibold text-[#2c3e50]">{partner.name}</p>
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-stone-500">Select a partner to view assets.</p>
+                <p className="text-sm text-[#5c4a1f] font-serif italic">Select a partner to view assets.</p>
               )}
             </div>
 
             <div className="space-y-3">
               <div>
-                <p className="text-xs font-semibold text-stone-500">Properties</p>
+                <p className="text-xs font-serif font-semibold text-[#8B6914]">Properties</p>
                 {renderPropertyList(
                   partnerProperties,
                   requestPropertyIds,
@@ -316,7 +317,7 @@ export function TradeModal({
               </div>
 
               <div>
-                <label htmlFor="request-cash" className="text-xs font-semibold text-stone-500">
+                <label htmlFor="request-cash" className="text-xs font-serif font-semibold text-[#8B6914]">
                   Cash you receive
                 </label>
                 <Input
@@ -328,8 +329,9 @@ export function TradeModal({
                   value={requestCashInput}
                   onChange={handleCashChange(setRequestCashInput)}
                   placeholder="0"
+                  className="border-[#d4af37]/30 bg-white font-serif"
                 />
-                <p className="mt-1 text-xs text-stone-500">
+                <p className="mt-1 text-xs text-[#5c4a1f]">
                   Available: ${partner ? partner.money.toLocaleString() : "0"}
                 </p>
               </div>
@@ -338,19 +340,19 @@ export function TradeModal({
         </div>
 
         {errorMessage && (
-          <div className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mt-4 rounded-md bg-[#c94c4c]/10 border border-[#c94c4c]/30 px-3 py-2 text-sm text-[#8b3a3a]">
             {errorMessage}
           </div>
         )}
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="border-[#8B6914]/50 text-[#5c4a1f] hover:bg-[#f5efe3] font-serif">
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!partner || isEmptyTrade || exceedsCash}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-gradient-to-r from-[#d4af37] to-[#c4a030] hover:from-[#c4a030] hover:to-[#b49028] font-serif border border-[#8B6914]"
           >
             Complete Trade
           </Button>

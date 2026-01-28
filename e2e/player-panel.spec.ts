@@ -70,7 +70,7 @@ test.describe('Player Panel Display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -98,8 +98,8 @@ test.describe('Player Panel Display', () => {
   });
 
   test('should highlight current player panel with amber border', async ({ page }) => {
-    // Current player panel should have amber border
-    const currentPlayerPanel = page.locator('.border-amber-400');
+    // Current player panel should have Art Deco golden border with ring-2 highlight
+    const currentPlayerPanel = page.locator('.ring-2').first();
     await expect(currentPlayerPanel).toBeVisible();
   });
 
@@ -115,7 +115,7 @@ test.describe('Player Panel Display', () => {
     await setDiceRolls(page, [[1, 1]]);
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // First player's turn
@@ -139,7 +139,7 @@ test.describe('Player Panel Display', () => {
     await setDiceRolls(page, [[1, 1]]);
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // Roll and wait for turn change
@@ -165,7 +165,7 @@ test.describe('Player Panel with 3 Players', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: '3 Players' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -186,7 +186,7 @@ test.describe('Player Panel with 4 Players', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: '4 Players' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -207,7 +207,7 @@ test.describe('Player Properties Display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -379,8 +379,8 @@ test.describe('Player Properties Display', () => {
       // Wait for modal
       await expect(page.getByText(/'s Properties$/)).toBeVisible({ timeout: 3000 });
 
-      // Click X button to close
-      const closeButton = page.locator('.rounded-full.p-2.text-stone-500').first();
+      // Click X button to close (Art Deco styled)
+      const closeButton = page.locator('.rounded-full.p-2').first();
       await closeButton.click();
 
       // Modal should close

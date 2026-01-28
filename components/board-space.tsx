@@ -33,10 +33,10 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
     <div
       onClick={onClick}
       className={cn(
-        "relative flex cursor-pointer border border-stone-300 transition-all overflow-hidden",
+        "relative flex cursor-pointer border border-[#8B6914]/50 transition-all overflow-hidden",
         isCorner ? "h-20 w-20 items-center justify-center" : isVertical ? "h-12 w-20" : "h-20 w-12",
         ownerColor && "ring-2 ring-inset",
-        hasSpecialImage ? "bg-stone-900" : "bg-stone-50 hover:bg-stone-100"
+        hasSpecialImage ? "bg-[#2c3e50]" : "bg-[#f5f0e6] hover:bg-[#eee8d8]"
       )}
       style={ownerColor ? { boxShadow: `inset 0 0 0 2px ${ownerColor}` } : undefined}
     >
@@ -97,19 +97,19 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
           <>
             <span
               className={cn(
-                "text-center font-medium leading-tight text-stone-800",
+                "text-center font-serif font-semibold leading-tight text-[#2c3e50]",
                 isCorner ? "text-[8px]" : "text-[7px]"
               )}
             >
               {space.name}
             </span>
-            {space.price && <span className="text-[6px] text-stone-600">${space.price}</span>}
+            {space.price && <span className="text-[6px] text-[#5c4a1f] font-medium">${space.price}</span>}
           </>
         ) : hasSpecialImage ? (
           <div className="flex flex-col items-center justify-end h-full pb-1">
-            <span 
+            <span
               className={cn(
-                "font-bold text-white drop-shadow-md text-center leading-tight",
+                "font-serif font-bold text-white drop-shadow-md text-center leading-tight",
                 isCorner ? "text-[9px]" : "text-[7px]"
               )}
             >
@@ -117,7 +117,7 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
             </span>
           </div>
         ) : (
-          <span className={cn("font-bold text-stone-700 text-center", isCorner ? "text-[9px]" : "text-[7px]")}>
+          <span className={cn("font-serif font-bold text-[#2c3e50] text-center", isCorner ? "text-[9px]" : "text-[7px]")}>
             {space.name}
           </span>
         )}

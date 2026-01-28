@@ -12,15 +12,15 @@ interface SpecialSpaceCardProps {
   message?: string
 }
 
-// Color schemes for different space types
+// Art Deco inspired color schemes for different space types
 const SPACE_COLORS: Record<string, string> = {
-  "chance": "#FF6B35",
-  "community-chest": "#4ECDC4",
-  "go": "#2ECC71",
-  "jail": "#95A5A6",
-  "free-parking": "#E74C3C",
-  "go-to-jail": "#8E44AD",
-  "tax": "#34495E",
+  "chance": "#c94c4c",      // Warm coral red
+  "community-chest": "#2c6e4f", // Deep teal green
+  "go": "#2c6e4f",          // Deep teal green
+  "jail": "#5c4a1f",        // Warm brown
+  "free-parking": "#d4af37", // Golden amber
+  "go-to-jail": "#6b4c7a",   // Dusty purple
+  "tax": "#2c4a5c",         // Deep navy teal
 }
 
 // Labels for different space types
@@ -83,7 +83,7 @@ export function SpecialSpaceCard({ space, onClose, drawnCard, message }: Special
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative w-full max-w-xs overflow-hidden rounded-lg bg-white shadow-2xl">
+      <div className="relative w-full max-w-xs overflow-hidden rounded-lg bg-gradient-to-b from-[#faf6ee] to-[#f5efe3] shadow-2xl border-2 border-[#8B6914]">
         {/* Hero image */}
         {space.image && (
           <div className="relative h-32 w-full">
@@ -93,19 +93,19 @@ export function SpecialSpaceCard({ space, onClose, drawnCard, message }: Special
               fill
               className="object-cover"
             />
-            <div 
+            <div
               className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
             />
           </div>
         )}
-        
+
         {/* Color header */}
         <div
           className="flex flex-col items-center justify-center py-3 text-white"
           style={{ backgroundColor }}
         >
-          <span className="text-xs font-medium uppercase tracking-wider opacity-80">{label}</span>
-          <h2 className="text-balance text-center text-lg font-bold">{space.name}</h2>
+          <span className="text-xs font-serif font-medium uppercase tracking-[0.2em] opacity-80">{label}</span>
+          <h2 className="text-balance text-center text-lg font-serif font-bold">{space.name}</h2>
         </div>
 
         {/* Close button */}
@@ -118,15 +118,15 @@ export function SpecialSpaceCard({ space, onClose, drawnCard, message }: Special
 
         {/* Card content */}
         <div className="p-4">
-          <p className="text-center text-sm text-stone-600">{displayMessage}</p>
+          <p className="text-center text-sm text-[#5c4a1f] font-serif">{displayMessage}</p>
 
           {/* Chance/Community Chest card effect */}
           {(space.type === "chance" || space.type === "community-chest") && drawnCard && (
-            <div 
-              className="mt-3 rounded p-3 text-center"
-              style={{ backgroundColor: `${backgroundColor}20` }}
+            <div
+              className="mt-3 rounded p-3 text-center border"
+              style={{ backgroundColor: `${backgroundColor}15`, borderColor: `${backgroundColor}40` }}
             >
-              <p className="text-lg font-bold" style={{ color: backgroundColor }}>
+              <p className="text-lg font-serif font-bold" style={{ color: backgroundColor }}>
                 {getCardEffectDescription(drawnCard)}
               </p>
             </div>
@@ -134,33 +134,33 @@ export function SpecialSpaceCard({ space, onClose, drawnCard, message }: Special
 
           {/* Tax specific content */}
           {space.type === "tax" && (
-            <div className="mt-3 rounded bg-stone-100 p-3 text-center">
-              <p className="text-lg font-bold text-stone-800">
+            <div className="mt-3 rounded bg-[#2c4a5c]/10 border border-[#2c4a5c]/30 p-3 text-center">
+              <p className="text-lg font-serif font-bold text-[#2c4a5c]">
                 {space.name === "Income Tax" ? "$200" : "$100"}
               </p>
-              <p className="text-xs text-stone-500">Amount paid</p>
+              <p className="text-xs text-[#3d5a6c]">Amount paid</p>
             </div>
           )}
 
           {/* Go specific content */}
           {space.type === "go" && (
-            <div className="mt-3 rounded bg-emerald-100 p-3 text-center">
-              <p className="text-lg font-bold text-emerald-700">+$200</p>
-              <p className="text-xs text-emerald-600">Collected</p>
+            <div className="mt-3 rounded bg-[#2c6e4f]/10 border border-[#2c6e4f]/30 p-3 text-center">
+              <p className="text-lg font-serif font-bold text-[#2c6e4f]">+$200</p>
+              <p className="text-xs text-[#3d8b65]">Collected</p>
             </div>
           )}
 
           {/* Go to Jail specific content */}
           {space.type === "go-to-jail" && (
-            <div className="mt-3 rounded bg-purple-100 p-3 text-center">
+            <div className="mt-3 rounded bg-[#6b4c7a]/10 border border-[#6b4c7a]/30 p-3 text-center">
               <p className="text-2xl">🔒</p>
-              <p className="text-xs text-purple-600">Sent to Alcatraz</p>
+              <p className="text-xs text-[#6b4c7a]">Sent to Alcatraz</p>
             </div>
           )}
 
-          <Button 
-            onClick={onClose} 
-            className="mt-4 w-full"
+          <Button
+            onClick={onClose}
+            className="mt-4 w-full font-serif"
             style={{ backgroundColor }}
           >
             Continue

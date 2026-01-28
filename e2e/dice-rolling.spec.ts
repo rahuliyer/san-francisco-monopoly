@@ -4,7 +4,7 @@ test.describe('Dice Rolling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     // Wait for game to start
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
@@ -124,7 +124,7 @@ test.describe('Dice Display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -138,8 +138,8 @@ test.describe('Dice Display', () => {
   });
 
   test('should show dice faces with dots', async ({ page }) => {
-    // Dice faces have dots rendered
-    const diceFaces = page.locator('.rounded-full.bg-stone-800');
+    // Dice faces have dots rendered (Art Deco styled with dark teal)
+    const diceFaces = page.locator('.rounded-full.bg-\\[\\#2c3e50\\]');
     // At least 2 dots should be visible (minimum for showing 1+1)
     const count = await diceFaces.count();
     expect(count).toBeGreaterThanOrEqual(2);

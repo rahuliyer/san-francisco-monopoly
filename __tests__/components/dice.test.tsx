@@ -21,7 +21,8 @@ describe('Dice component', () => {
   it('should render dots on all faces', () => {
     render(<Dice values={[1, 1]} />)
     // Each die has all 6 faces visible (1+2+3+4+5+6 = 21 dots per die)
-    const dots = document.querySelectorAll('.rounded-full.bg-stone-800')
+    // Art Deco styled with dark teal dots
+    const dots = document.querySelectorAll('.rounded-full.bg-\\[\\#2c3e50\\]')
     expect(dots).toHaveLength(42) // 21 dots per die * 2 dice
   })
 
@@ -41,7 +42,8 @@ describe('Dice component', () => {
     testValues.forEach(([v1, v2]) => {
       const { unmount } = render(<Dice values={[v1, v2]} />)
       // Each 3D die has all faces, so dots are always present
-      const dots = document.querySelectorAll('.rounded-full.bg-stone-800')
+      // Art Deco styled with dark teal dots
+      const dots = document.querySelectorAll('.rounded-full.bg-\\[\\#2c3e50\\]')
       expect(dots.length).toBeGreaterThan(0)
       unmount()
     })
@@ -49,8 +51,8 @@ describe('Dice component', () => {
 
   it('should render dice with proper face styling', () => {
     render(<Dice values={[4, 3]} />)
-    // Each face has border-2 and border-stone-300
-    const diceElements = document.querySelectorAll('.border-2.border-stone-300')
+    // Each face has border-2 and Art Deco golden border
+    const diceElements = document.querySelectorAll('.border-2.border-\\[\\#8B6914\\]')
     expect(diceElements).toHaveLength(12) // 6 faces per die * 2 dice
   })
 
