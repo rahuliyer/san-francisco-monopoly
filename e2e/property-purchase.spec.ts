@@ -55,6 +55,7 @@ async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
 test.describe('Property Purchase', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
@@ -224,6 +225,7 @@ test.describe('Property Purchase', () => {
 test.describe('Property Ownership Display', () => {
   test('should show owned property in player panel after purchase', async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
@@ -263,6 +265,7 @@ test.describe('Property Ownership Display', () => {
     await setDiceRolls(page, [[1, 2]]);
 
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
@@ -288,6 +291,7 @@ test.describe('Property Ownership Display', () => {
 test.describe('Property Card Modal', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });

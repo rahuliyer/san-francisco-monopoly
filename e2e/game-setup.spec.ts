@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Game Setup', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
   });
 
   test('should display the game setup screen on initial load', async ({ page }) => {

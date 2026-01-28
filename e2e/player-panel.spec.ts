@@ -69,6 +69,7 @@ async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
 test.describe('Player Panel Display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
@@ -113,6 +114,7 @@ test.describe('Player Panel Display', () => {
   test('should allow turn to advance after rolling', async ({ page }) => {
     await setDiceRolls(page, [[1, 1]]);
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
@@ -136,6 +138,7 @@ test.describe('Player Panel Display', () => {
   test('should keep "Your Turn" badge visible after rolling', async ({ page }) => {
     await setDiceRolls(page, [[1, 1]]);
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
@@ -160,6 +163,7 @@ test.describe('Player Panel Display', () => {
 test.describe('Player Panel with 3 Players', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: '3 Players' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
@@ -180,6 +184,7 @@ test.describe('Player Panel with 3 Players', () => {
 test.describe('Player Panel with 4 Players', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: '4 Players' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
@@ -201,6 +206,7 @@ test.describe('Player Panel with 4 Players', () => {
 test.describe('Player Properties Display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });

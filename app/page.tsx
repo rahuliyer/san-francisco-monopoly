@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from "react"
+import { SplashScreen } from "@/components/splash-screen"
 import { GameSetup } from "@/components/game-setup"
 import { GameBoard } from "@/components/game-board"
 import { PlayerPanel } from "@/components/player-panel"
@@ -90,6 +91,7 @@ interface GameState {
 }
 
 export default function MonopolyGame() {
+  const [showSplash, setShowSplash] = useState(true)
   const [gameStarted, setGameStarted] = useState(false)
   const [gameState, setGameState] = useState<GameState>({
     players: [],
@@ -1054,6 +1056,10 @@ export default function MonopolyGame() {
     handleCloseCard,
     handleCloseSpecialCard,
   ])
+
+  if (showSplash) {
+    return <SplashScreen onPlay={() => setShowSplash(false)} />
+  }
 
   if (!gameStarted) {
     return <GameSetup onStartGame={handleStartGame} />

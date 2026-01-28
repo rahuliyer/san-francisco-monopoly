@@ -2,6 +2,7 @@ import { test, expect, Page } from '@playwright/test';
 
 async function startGame(page: Page) {
   await page.goto('/');
+  await page.getByRole('button', { name: 'Play Now' }).click();
   await page.getByRole('button', { name: 'Start Game' }).click();
   await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 }
