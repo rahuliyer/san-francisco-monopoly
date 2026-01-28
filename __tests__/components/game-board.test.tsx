@@ -39,10 +39,11 @@ describe('GameBoard component', () => {
         propertyOwners={{}}
       />
     )
-    
-    expect(screen.getByText('SF')).toBeInTheDocument()
+
+    // Art Deco styled title
+    expect(screen.getByText('SAN FRANCISCO')).toBeInTheDocument()
     expect(screen.getByText('MONOPOLY')).toBeInTheDocument()
-    expect(screen.getByText('The San Francisco Edition')).toBeInTheDocument()
+    expect(screen.getByText('The City by the Bay Edition')).toBeInTheDocument()
   })
 
   it('should render all 40 board spaces', () => {

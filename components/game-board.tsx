@@ -29,9 +29,11 @@ export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouse
   const getHouseCount = (spaceId: number) => propertyHouses?.[spaceId] ?? 0
 
   return (
-    <div className="relative inline-block bg-emerald-100 p-1">
+    <div className="relative inline-block bg-[#e8dcc8] p-2 rounded-lg border-4 border-[#8B6914]">
+      {/* Art Deco outer frame */}
+      <div className="absolute inset-0 rounded-lg border-2 border-[#d4af37] pointer-events-none" />
       {/* Main board container using CSS Grid */}
-      <div className="grid grid-cols-[80px_repeat(9,48px)_80px] grid-rows-[80px_repeat(9,48px)_80px]">
+      <div className="grid grid-cols-[80px_repeat(9,48px)_80px] grid-rows-[80px_repeat(9,48px)_80px] border-2 border-[#5c4a1f]">
         {/* Top row */}
         {topRow.map((space, index) => (
           <div
@@ -106,17 +108,37 @@ export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouse
           </div>
         ))}
 
-        {/* Center area */}
-        <div className="col-span-9 row-span-9 col-start-2 row-start-2 flex flex-col items-center justify-center bg-emerald-100 p-4">
-          <h1 className="text-center font-serif text-4xl font-bold tracking-tight text-stone-800">
-            SF
+        {/* Center area - Art Deco styled */}
+        <div className="col-span-9 row-span-9 col-start-2 row-start-2 flex flex-col items-center justify-center bg-gradient-to-br from-[#f5e6c8] via-[#e8dcc8] to-[#dccfb8] p-4 relative">
+          {/* Decorative corner elements */}
+          <div className="absolute top-3 left-3 w-8 h-8 border-l-2 border-t-2 border-[#8B6914]" />
+          <div className="absolute top-3 right-3 w-8 h-8 border-r-2 border-t-2 border-[#8B6914]" />
+          <div className="absolute bottom-3 left-3 w-8 h-8 border-l-2 border-b-2 border-[#8B6914]" />
+          <div className="absolute bottom-3 right-3 w-8 h-8 border-r-2 border-b-2 border-[#8B6914]" />
+
+          {/* Art Deco divider line top */}
+          <div className="absolute top-6 left-12 right-12 h-0.5 bg-gradient-to-r from-transparent via-[#d4af37] to-transparent" />
+
+          <h1 className="text-center font-serif text-4xl font-bold tracking-[0.2em] text-[#2c4a5c] drop-shadow-sm">
+            SAN FRANCISCO
           </h1>
-          <h2 className="text-center font-serif text-2xl font-bold tracking-widest text-amber-600">
+          <h2 className="text-center font-serif text-3xl font-bold tracking-[0.3em] text-[#8B6914] mt-1">
             MONOPOLY
           </h2>
-          <div className="mt-4 text-center text-xs text-stone-600">
-            <p>The San Francisco Edition</p>
+
+          {/* Art Deco divider */}
+          <div className="flex items-center gap-2 mt-3 mb-2">
+            <div className="w-8 h-0.5 bg-[#8B6914]" />
+            <div className="w-2 h-2 rotate-45 bg-[#d4af37]" />
+            <div className="w-8 h-0.5 bg-[#8B6914]" />
           </div>
+
+          <div className="text-center text-sm text-[#5c4a1f] font-serif italic">
+            <p>The City by the Bay Edition</p>
+          </div>
+
+          {/* Art Deco divider line bottom */}
+          <div className="absolute bottom-6 left-12 right-12 h-0.5 bg-gradient-to-r from-transparent via-[#d4af37] to-transparent" />
         </div>
       </div>
     </div>

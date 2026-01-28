@@ -46,7 +46,7 @@ test.describe('Jail Mechanics', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -116,10 +116,10 @@ test.describe('Jail Mechanics', () => {
       // Check if current player is now in jail (has jail controls)
       const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
       if (await rollForDoubles.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Verify jail controls are displayed
+        // Verify jail controls are displayed (Art Deco styled)
         await expect(rollForDoubles).toBeVisible();
         await expect(page.getByRole('button', { name: 'Pay $50 to Leave' })).toBeVisible();
-        await expect(page.getByText('🔒 In Alcatraz')).toBeVisible();
+        await expect(page.getByText('In Alcatraz', { exact: true })).toBeVisible();
         return;
       }
     }

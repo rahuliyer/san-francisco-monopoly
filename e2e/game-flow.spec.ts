@@ -102,7 +102,7 @@ async function setupGameWithRandom(page: Page, sequence: number[], playerCount =
   if (playerCount === 4) {
     await page.getByRole('button', { name: '4 Players' }).click();
   }
-  await page.getByRole('button', { name: 'Start Game' }).click();
+  await page.getByRole('button', { name: 'START GAME' }).click();
   await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
   await page.evaluate((randomSequence) => {
@@ -168,13 +168,13 @@ test.describe('Complete Game Flow', () => {
   });
 
   test('should complete a full setup to game start flow', async ({ page }) => {
-    // Step 1: Setup screen is displayed
-    await expect(page.getByRole('heading', { name: 'SF' })).toBeVisible();
+    // Step 1: Setup screen is displayed (Art Deco styled)
+    await expect(page.getByRole('heading', { name: 'SAN FRANCISCO' })).toBeVisible();
     await expect(page.getByText('Number of Players')).toBeVisible();
 
     // Step 2: Select 3 players
     await page.getByRole('button', { name: '3 Players' }).click();
-    await expect(page.getByRole('button', { name: '3 Players' })).toHaveClass(/bg-amber-500/);
+    await expect(page.getByRole('button', { name: '3 Players' })).toHaveClass(/from-\[#d4af37\]/);
 
     // Step 3: Enter custom player names
     await page.locator('input[value="Player 1"]').fill('Alice');
@@ -182,7 +182,7 @@ test.describe('Complete Game Flow', () => {
     await page.locator('input[value="Player 3"]').fill('Charlie');
 
     // Step 4: Start game
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
 
     // Step 5: Verify game started
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
@@ -194,7 +194,7 @@ test.describe('Complete Game Flow', () => {
 
   test('should play multiple turns', async ({ page }) => {
     // Start game with 2 players
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // Play 4 turns (2 rounds)
@@ -219,7 +219,7 @@ test.describe('Complete Game Flow', () => {
 
   test('should track player money changes throughout the game', async ({ page }) => {
     // Start game
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // Initial money check
@@ -273,7 +273,7 @@ test.describe('Complete Game Flow', () => {
 
   test('should display game log messages', async ({ page }) => {
     // Start game
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // Roll dice
@@ -291,7 +291,7 @@ test.describe('Complete Game Flow', () => {
 
   test('should support viewing properties from board', async ({ page }) => {
     // Start game
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // Click on a property on the board
@@ -312,7 +312,7 @@ test.describe('Turn Progression', () => {
     await setDiceRolls(page, [[1, 1], [1, 1]]);
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     // With 2 players: Player 1 -> Player 2 -> Player 1
@@ -350,7 +350,7 @@ test.describe('Turn Progression', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: '4 Players' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     for (let i = 0; i < 4; i++) {
@@ -377,7 +377,7 @@ test.describe('Property Rent Payment', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     const rollPlayerOne = await waitForRollButton(page);
@@ -414,7 +414,7 @@ test.describe('Property Rent Payment', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
     const firstRoll = await waitForRollButton(page);

@@ -1161,10 +1161,10 @@ export default function MonopolyGame() {
         : "md:grid-cols-4"
 
   return (
-    <main className="min-h-screen bg-emerald-100 p-4">
+    <main className="vintage-paper min-h-screen p-4">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-6">
         {/* Center - Game Board */}
-        <div className="overflow-auto">
+        <div className="overflow-auto rounded-lg golden-glow">
           <GameBoard
             players={gameState.players}
             onSpaceClick={handleSpaceClick}
@@ -1205,14 +1205,14 @@ export default function MonopolyGame() {
       {/* Player Properties Modal */}
       {gameState.viewingPropertiesForPlayer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-6 shadow-xl border-2 border-[#8B6914]">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-stone-800">
+              <h2 className="text-xl font-serif font-bold text-[#2c3e50]">
                 {gameState.viewingPropertiesForPlayer.name}&apos;s Properties
               </h2>
               <button
                 onClick={handleClosePlayerProperties}
-                className="rounded-full p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-full p-2 text-[#5c4a1f] hover:bg-[#d4af37]/10 hover:text-[#2c3e50]"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1225,7 +1225,7 @@ export default function MonopolyGame() {
               )
               if (ownedProperties.length === 0) {
                 return (
-                  <p className="text-center text-stone-500">No properties owned yet.</p>
+                  <p className="text-center text-[#5c4a1f] font-serif italic">No properties owned yet.</p>
                 )
               }
               // Group properties by color
@@ -1241,7 +1241,7 @@ export default function MonopolyGame() {
                 <div className="space-y-4">
                   {Object.entries(groupedProperties).map(([group, properties]) => (
                     <div key={group}>
-                      <h3 className="mb-2 text-sm font-semibold capitalize text-stone-600">
+                      <h3 className="mb-2 text-sm font-serif font-semibold capitalize text-[#8B6914]">
                         {group.replace("-", " ")}
                       </h3>
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -1260,7 +1260,7 @@ export default function MonopolyGame() {
                                 handleClosePlayerProperties()
                                 handleSpaceClick(prop)
                               }}
-                              className="flex items-center gap-3 rounded-lg border border-stone-200 p-3 text-left transition-colors hover:bg-stone-50"
+                              className="flex items-center gap-3 rounded-lg border border-[#d4af37]/30 p-3 text-left transition-colors hover:bg-[#d4af37]/10 bg-[#faf6ee]"
                             >
                               <div
                                 className="h-8 w-4 rounded"
@@ -1285,12 +1285,12 @@ export default function MonopolyGame() {
                                 }}
                               />
                               <div>
-                                <p className="font-medium text-stone-800">{prop.name}</p>
+                                <p className="font-serif font-medium text-[#2c3e50]">{prop.name}</p>
                                 {prop.price && (
-                                  <p className="text-sm text-stone-500">${prop.price}</p>
+                                  <p className="text-sm text-[#5c4a1f]">${prop.price}</p>
                                 )}
                                 {prop.type === "property" && houseLabel && (
-                                  <p className="text-xs text-stone-500">{houseLabel}</p>
+                                  <p className="text-xs text-[#8B6914]">{houseLabel}</p>
                                 )}
                               </div>
                             </button>

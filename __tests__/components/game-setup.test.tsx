@@ -12,9 +12,10 @@ describe('GameSetup component', () => {
 
   it('should render the game title', () => {
     render(<GameSetup onStartGame={mockOnStartGame} />)
-    expect(screen.getByText('SF')).toBeInTheDocument()
+    // Art Deco styled title
+    expect(screen.getByText('SAN FRANCISCO')).toBeInTheDocument()
     expect(screen.getByText('MONOPOLY')).toBeInTheDocument()
-    expect(screen.getByText('The San Francisco Edition')).toBeInTheDocument()
+    expect(screen.getByText('The City by the Bay Edition')).toBeInTheDocument()
   })
 
   it('should render player count selector buttons', () => {
@@ -141,14 +142,15 @@ describe('GameSetup component', () => {
 
   it('should have proper styling for selected player count', async () => {
     render(<GameSetup onStartGame={mockOnStartGame} />)
-    
-    // 2 Players should be highlighted initially
+
+    // 2 Players should be highlighted initially with Art Deco golden gradient
     const twoPlayersBtn = screen.getByText('2 Players')
-    expect(twoPlayersBtn).toHaveClass('bg-amber-500')
-    
+    expect(twoPlayersBtn).toHaveClass('text-white')
+    expect(twoPlayersBtn).toHaveClass('border-[#8B6914]')
+
     // Click 3 Players
     await userEvent.click(screen.getByText('3 Players'))
-    expect(screen.getByText('3 Players')).toHaveClass('bg-amber-500')
-    expect(screen.getByText('2 Players')).toHaveClass('bg-stone-100')
+    expect(screen.getByText('3 Players')).toHaveClass('text-white')
+    expect(screen.getByText('2 Players')).toHaveClass('bg-[#faf6ee]')
   })
 })
