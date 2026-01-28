@@ -39,6 +39,7 @@ async function waitForRollButton(page: Page) {
 test.describe('Game Controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
@@ -98,6 +99,7 @@ test.describe('Game Controls', () => {
 test.describe('Jail Controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });
@@ -169,6 +171,7 @@ test.describe('Jail Controls', () => {
 test.describe('Game Controls Styling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
   });

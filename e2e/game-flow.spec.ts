@@ -120,6 +120,7 @@ test.describe('Monopoly flow', () => {
     await setDiceRolls(page, [[3, 3]]);
 
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: /start game/i }).click();
 
     const rollBtn = await waitForRollButton(page);
@@ -138,6 +139,7 @@ test.describe('Monopoly flow', () => {
     await setDiceRolls(page, [[3, 3]]);
 
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: /start game/i }).click();
     const rollBtn = await waitForRollButton(page);
     await rollBtn.click();
@@ -162,6 +164,7 @@ test.describe('Monopoly flow', () => {
 test.describe('Complete Game Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
   });
 
   test('should complete a full setup to game start flow', async ({ page }) => {
@@ -308,6 +311,7 @@ test.describe('Turn Progression', () => {
   test('should allow turns to advance for next roll', async ({ page }) => {
     await setDiceRolls(page, [[1, 1], [1, 1]]);
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
@@ -344,6 +348,7 @@ test.describe('Turn Progression', () => {
 
     // Go back to setup
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: '4 Players' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
@@ -371,6 +376,7 @@ test.describe('Property Rent Payment', () => {
     await setDiceRolls(page, [[2, 3], [2, 3]]);
 
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
@@ -407,6 +413,7 @@ test.describe('Property Rent Payment', () => {
     ]);
 
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 

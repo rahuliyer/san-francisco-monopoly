@@ -19,6 +19,10 @@ describe('Escape key closes dialogs', () => {
   const startGame = async () => {
     render(<MonopolyGame />)
 
+    // Click "Play Now" to dismiss the splash screen
+    const playNowButton = screen.getByRole('button', { name: /play now/i })
+    await userEvent.click(playNowButton)
+
     // Fill in player names using userEvent for proper handling
     const nameInputs = screen.getAllByRole('textbox')
     await userEvent.clear(nameInputs[0])

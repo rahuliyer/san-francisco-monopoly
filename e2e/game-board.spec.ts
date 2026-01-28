@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Game Board', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'Start Game' }).click();
     // Wait for game to start
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
