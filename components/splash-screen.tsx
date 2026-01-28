@@ -11,10 +11,10 @@ export function SplashScreen({ onPlay }: SplashScreenProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#f5e6c8] via-[#e8dcc8] to-[#dccfb8] p-4">
       {/* Decorative corner elements */}
-      <div className="fixed top-8 left-8 w-16 h-16 border-l-3 border-t-3 border-[#d4af37]/50" />
-      <div className="fixed top-8 right-8 w-16 h-16 border-r-3 border-t-3 border-[#d4af37]/50" />
-      <div className="fixed bottom-8 left-8 w-16 h-16 border-l-3 border-b-3 border-[#d4af37]/50" />
-      <div className="fixed bottom-8 right-8 w-16 h-16 border-r-3 border-b-3 border-[#d4af37]/50" />
+      <div className="fixed top-8 left-8 w-16 h-16 border-l-[3px] border-t-[3px] border-[#d4af37]/50" />
+      <div className="fixed top-8 right-8 w-16 h-16 border-r-[3px] border-t-[3px] border-[#d4af37]/50" />
+      <div className="fixed bottom-8 left-8 w-16 h-16 border-l-[3px] border-b-[3px] border-[#d4af37]/50" />
+      <div className="fixed bottom-8 right-8 w-16 h-16 border-r-[3px] border-b-[3px] border-[#d4af37]/50" />
 
       <div className="relative w-full max-w-2xl overflow-hidden rounded-lg shadow-2xl border-4 border-[#8B6914] golden-glow">
         {/* Art Deco frame */}
