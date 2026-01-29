@@ -92,9 +92,15 @@ Before implementing a new feature:
 
 Before creating a PR:
 1. Rebase against main branch
-2. Run `pnpm test` - all tests must pass
-3. Run `pnpm build` - build must succeed
-4. Fix any issues and repeat until all pass
+2. Run `/verify` to execute the full CI verification suite, or manually run:
+   - `pnpm build` - build must succeed
+   - `pnpm test` - all unit tests must pass
+   - `pnpm test:e2e` - all e2e tests must pass
+3. Fix any issues and repeat until all pass
+
+## Custom Skills
+
+- `/verify` - Runs build, unit tests, and e2e tests with a summary report
 
 ## Key Files
 
