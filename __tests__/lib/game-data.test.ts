@@ -222,6 +222,7 @@ describe('createPlayer', () => {
     expect(player.properties).toEqual([])
     expect(player.inJail).toBe(false)
     expect(player.jailTurns).toBe(0)
+    expect(player.isBankrupt).toBe(false)
   })
 
   it('should use the correct token based on tokenIndex', () => {

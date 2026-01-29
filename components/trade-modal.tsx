@@ -41,7 +41,7 @@ export function TradeModal({
   onClose,
 }: TradeModalProps) {
   const otherPlayers = useMemo(
-    () => players.filter((player) => player.id !== currentPlayer.id),
+    () => players.filter((player) => player.id !== currentPlayer.id && !player.isBankrupt),
     [players, currentPlayer.id]
   )
   const [partnerId, setPartnerId] = useState<number>(otherPlayers[0]?.id ?? -1)

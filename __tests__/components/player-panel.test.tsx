@@ -13,6 +13,7 @@ describe('PlayerPanel component', () => {
     properties: [],
     inJail: false,
     jailTurns: 0,
+    isBankrupt: false,
     ...overrides,
   })
 
@@ -79,6 +80,18 @@ describe('PlayerPanel component', () => {
         propertyOwners={{}}
       />
     )
+    expect(screen.queryByText('Your Turn')).not.toBeInTheDocument()
+  })
+
+  it('should show bankrupt status and hide turn indicator', () => {
+    render(
+      <PlayerPanel
+        player={createMockPlayer({ isBankrupt: true })}
+        isCurrentTurn={true}
+        propertyOwners={{}}
+      />
+    )
+    expect(screen.getByText('Bankrupt')).toBeInTheDocument()
     expect(screen.queryByText('Your Turn')).not.toBeInTheDocument()
   })
 

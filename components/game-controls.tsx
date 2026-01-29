@@ -15,6 +15,8 @@ interface GameControlsProps {
   canAffordJailFee?: boolean
   onTrade?: () => void
   tradeDisabled?: boolean
+  gameOver?: boolean
+  winnerName?: string
 }
 
 export function GameControls({
@@ -29,14 +31,24 @@ export function GameControls({
   canAffordJailFee = true,
   onTrade,
   tradeDisabled = false,
+  gameOver = false,
+  winnerName,
 }: GameControlsProps) {
   const isLastJailTurn = isInJail && jailTurns >= 2
 
   return (
     <div className="flex flex-col items-center gap-4 rounded-lg bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-4 shadow-md border-2 border-[#c4b897]">
       <p className="text-sm font-serif font-medium text-[#5c4a1f]">
-        {currentPlayerName}&apos;s Turn
+        {gameOver ? "Game Over" : `${currentPlayerName}'s Turn`}
       </p>
+
+      {gameOver && (
+        <div className="w-full rounded-lg bg-[#2c6e4f]/10 border border-[#2c6e4f]/30 p-3 text-center">
+          <p className="text-sm font-serif font-semibold text-[#2c6e4f]">
+            {winnerName ? `${winnerName} wins!` : "Final results"}
+          </p>
+        </div>
+      )}
 
       {isInJail && (
         <div className="w-full rounded-lg bg-[#c94c4c]/10 border border-[#c94c4c]/30 p-3 text-center">
@@ -69,48 +81,54 @@ export function GameControls({
         </div>
       )}
 
-      <div className="flex w-full flex-col gap-2">
-        {isInJail && !hasRolled ? (
-          <>
+      {!gameOver && (
+        <div className="flex w-full flex-col gap-2">
+          {isInJail && !hasRolled ? (
+            <>
+              <Button
+                onClick={onRoll}
+                disabled={rolling}
+                className="bg-gradient-to-r from-[#d4af37] to-[#c4a030] hover:from-[#c4a030] hover:to-[#b49028] text-white font-serif shadow-md disabled:opacity-50 w-full border border-[#8B6914]"
+              >
+                {rolling ? "Rolling..." : "Roll for Doubles"}
+              </Button>
+              {onPayJailFee && (
+                <Button
+                  onClick={onPayJailFee}
+                  disabled={!canAffordJailFee || rolling || hasRolled}
+                  variant="outline"
+                  className="w-full border-[#c94c4c]/50 text-[#8b3a3a] hover:bg-[#c94c4c]/10 font-serif"
+                >
+                  Pay $50 to Leave
+                </Button>
+              )}
+            </>
+          ) : (
             <Button
               onClick={onRoll}
-              disabled={rolling}
-              className="bg-gradient-to-r from-[#d4af37] to-[#c4a030] hover:from-[#c4a030] hover:to-[#b49028] text-white font-serif shadow-md disabled:opacity-50 w-full border border-[#8B6914]"
+              disabled={hasRolled || rolling}
+              className="bg-gradient-to-r from-[#d4af37] to-[#c4a030] hover:from-[#c4a030] hover:to-[#b49028] text-white font-serif shadow-md disabled:opacity-50 border border-[#8B6914]"
             >
-              {rolling ? "Rolling..." : "Roll for Doubles"}
+              {rolling ? "Rolling..." : "Roll Dice"}
             </Button>
-            {onPayJailFee && (
-              <Button
-                onClick={onPayJailFee}
-                disabled={!canAffordJailFee || rolling || hasRolled}
-                variant="outline"
-                className="w-full border-[#c94c4c]/50 text-[#8b3a3a] hover:bg-[#c94c4c]/10 font-serif"
-              >
-                Pay $50 to Leave
-              </Button>
-            )}
-          </>
-        ) : (
-          <Button
-            onClick={onRoll}
-            disabled={hasRolled || rolling}
-            className="bg-gradient-to-r from-[#d4af37] to-[#c4a030] hover:from-[#c4a030] hover:to-[#b49028] text-white font-serif shadow-md disabled:opacity-50 border border-[#8B6914]"
-          >
-            {rolling ? "Rolling..." : "Roll Dice"}
-          </Button>
-        )}
+          )}
 
-        {onTrade && (
-          <Button
-            onClick={onTrade}
-            disabled={tradeDisabled}
-            variant="outline"
-            className="w-full border-[#2c6e4f]/50 text-[#2c6e4f] hover:bg-[#2c6e4f]/10 font-serif"
-          >
-            Trade
-          </Button>
-        )}
-      </div>
+          {onTrade && (
+            <Button
+              onClick={onTrade}
+              disabled={tradeDisabled}
+              variant="outline"
+              className="w-full border-[#2c6e4f]/50 text-[#2c6e4f] hover:bg-[#2c6e4f]/10 font-serif"
+            >
+              Trade
+            </Button>
+          )}
+        </div>
+      )}
+
+      {gameOver && (
+        <p className="text-xs text-[#5c4a1f] font-serif">Start a new game to play again.</p>
+      )}
     </div>
   )
 }

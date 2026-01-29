@@ -31,6 +31,7 @@ describe('PropertyCard component', () => {
     properties: [],
     inJail: false,
     jailTurns: 0,
+    isBankrupt: false,
   }
 
   beforeEach(() => {

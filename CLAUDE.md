@@ -87,6 +87,9 @@ Core types are defined in `lib/game-data.ts`:
 
 ## Pre-PR Checklist
 
+Before implementing a new feature:
+1. Always create a new worktree from main (e.g., `git worktree add ../project-feature feat/feature-name -b feat/feature-name`)
+
 Before creating a PR:
 1. Rebase against main branch
 2. Run `pnpm test` - all tests must pass

@@ -25,6 +25,7 @@ describe('GameBoard component', () => {
       properties: [],
       inJail: false,
       jailTurns: 0,
+      isBankrupt: false,
     }))
   }
 

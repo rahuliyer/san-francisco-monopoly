@@ -26,6 +26,7 @@ export interface Player {
   properties: number[]
   inJail: boolean
   jailTurns: number
+  isBankrupt: boolean
 }
 
 export const COLOR_MAP: Record<string, string> = {
@@ -112,6 +113,7 @@ export function createPlayer(id: number, name: string, tokenIndex: number): Play
     properties: [],
     inJail: false,
     jailTurns: 0,
+    isBankrupt: false,
   }
 }
 
