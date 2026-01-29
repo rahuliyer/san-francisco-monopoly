@@ -16,6 +16,7 @@ describe('TradeModal component', () => {
     properties: [tenderloin.id],
     inJail: false,
     jailTurns: 0,
+    isBankrupt: false,
   }
 
   const playerB: Player = {
@@ -28,6 +29,7 @@ describe('TradeModal component', () => {
     properties: [caltrain.id],
     inJail: false,
     jailTurns: 0,
+    isBankrupt: false,
   }
 
   const propertyOwners = {

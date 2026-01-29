@@ -20,7 +20,11 @@ export function PlayerPanel({ player, isCurrentTurn, propertyOwners, onPropertie
     <div
       className={cn(
         "rounded-lg border-2 bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-4 shadow-md transition-all",
-        isCurrentTurn ? "border-[#d4af37] ring-2 ring-[#d4af37]/30 golden-glow" : "border-[#c4b897]"
+        player.isBankrupt
+          ? "border-[#c4b897] opacity-70"
+          : isCurrentTurn
+            ? "border-[#d4af37] ring-2 ring-[#d4af37]/30 golden-glow"
+            : "border-[#c4b897]"
       )}
     >
       <div className="flex items-center gap-3">
@@ -34,20 +38,24 @@ export function PlayerPanel({ player, isCurrentTurn, propertyOwners, onPropertie
           <h3 className="font-serif font-semibold text-[#2c3e50]">{player.name}</h3>
           <p className="text-lg font-bold text-[#2c6e4f]">${player.money.toLocaleString()}</p>
         </div>
-        {isCurrentTurn && (
+        {player.isBankrupt ? (
+          <span className="rounded-full bg-[#8b3a3a]/10 px-2 py-1 text-xs font-medium text-[#8b3a3a] border border-[#8b3a3a]/30">
+            Bankrupt
+          </span>
+        ) : isCurrentTurn ? (
           <span className="rounded-full bg-[#d4af37]/20 px-2 py-1 text-xs font-medium text-[#8B6914] border border-[#d4af37]/30">
             Your Turn
           </span>
-        )}
+        ) : null}
       </div>
 
-      {player.inJail && (
+      {player.inJail && !player.isBankrupt && (
         <div className="mt-2 rounded bg-[#c94c4c]/10 border border-[#c94c4c]/20 px-2 py-1 text-xs text-[#8b3a3a]">
           In Alcatraz ({3 - player.jailTurns} turns left)
         </div>
       )}
 
-      {ownedProperties.length > 0 && (
+      {ownedProperties.length > 0 && !player.isBankrupt && (
         <button
           onClick={onPropertiesClick}
           className="mt-3 w-full border-t border-[#d4af37]/30 pt-3 text-left transition-colors hover:bg-[#f5efe3] rounded-b-md -mx-4 px-4 -mb-4 pb-4"

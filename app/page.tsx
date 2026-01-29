@@ -21,6 +21,7 @@ import {
   calculateRent,
   getSpacesByColorGroup,
 } from "@/lib/game-data"
+import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies } from "@/lib/game-status"
 
 // Duration to wait for dice animation to complete after rolling stops (ms)
 const DICE_ANIMATION_DURATION = 700
@@ -79,6 +80,7 @@ interface GameState {
   diceValues: [number, number]
   hasRolled: boolean
   rolling: boolean
+  consecutiveDoubles: number
   selectedSpace: Space | null
   specialSpace: Space | null
   drawnCard: GameCard | null
@@ -88,6 +90,8 @@ interface GameState {
   isOwnProperty: boolean
   rentPaid: number | undefined
   viewingPropertiesForPlayer: Player | null
+  gameOver: boolean
+  winnerId: number | null
 }
 
 export default function MonopolyGame() {
@@ -102,6 +106,7 @@ export default function MonopolyGame() {
     diceValues: getRandomInitialDice(),
     hasRolled: false,
     rolling: false,
+    consecutiveDoubles: 0,
     selectedSpace: null,
     specialSpace: null,
     drawnCard: null,
@@ -111,6 +116,8 @@ export default function MonopolyGame() {
     isOwnProperty: false,
     rentPaid: undefined,
     viewingPropertiesForPlayer: null,
+    gameOver: false,
+    winnerId: null,
   })
   const [isTradeOpen, setIsTradeOpen] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -127,6 +134,8 @@ export default function MonopolyGame() {
       mortgagedProperties: {},
       propertyHouses: {},
       gameLog: ["Game started! " + players[0].name + " goes first."],
+      gameOver: false,
+      winnerId: null,
     }))
     setGameStarted(true)
   }
@@ -141,7 +150,13 @@ export default function MonopolyGame() {
   const handleEndTurn = useCallback(() => {
     setIsTradeOpen(false)
     setGameState((prev) => {
-      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length
+      if (prev.gameOver) {
+        return prev
+      }
+      const nextPlayerIndex = getNextActivePlayerIndex(prev.players, prev.currentPlayerIndex)
+      if (nextPlayerIndex === null || nextPlayerIndex === prev.currentPlayerIndex) {
+        return prev
+      }
       const nextPlayerName = prev.players[nextPlayerIndex].name
       // Schedule the log message after state update
       setTimeout(() => addLog(`${nextPlayerName}'s turn`), 0)
@@ -149,6 +164,7 @@ export default function MonopolyGame() {
         ...prev,
         currentPlayerIndex: nextPlayerIndex,
         hasRolled: false,
+        consecutiveDoubles: 0,
         diceValues: getRandomInitialDice(),
         awaitingPropertyDecision: false,
         awaitingSpecialSpace: false,
@@ -160,8 +176,37 @@ export default function MonopolyGame() {
     })
   }, [addLog])
 
+  // Called after a player completes their action (closes modal, etc.)
+  // If they rolled doubles, they get another roll; otherwise, end turn
+  const handleActionComplete = useCallback(() => {
+    setGameState((prev) => {
+      // If player rolled doubles (and didn't go to jail for 3rd double), they can roll again
+      if (prev.consecutiveDoubles > 0) {
+        // Check if the current player is in jail (sent by landing on Go To Jail or card)
+        const currentPlayer = prev.players[prev.currentPlayerIndex]
+        if (currentPlayer.inJail) {
+          // Player was sent to jail, end turn
+          setTimeout(() => handleEndTurn(), 0)
+          return prev
+        }
+        // Player rolled doubles, let them roll again
+        setTimeout(() => addLog(`${currentPlayer.name} rolled doubles - roll again!`), 0)
+        return {
+          ...prev,
+          hasRolled: false,
+        }
+      }
+      // No doubles, end turn
+      setTimeout(() => handleEndTurn(), 0)
+      return prev
+    })
+  }, [handleEndTurn, addLog])
+
   const handlePayJailFee = useCallback(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (currentPlayer.isBankrupt) {
+      return
+    }
     
     if (currentPlayer.money < 50) {
       addLog(`${currentPlayer.name} cannot afford the $50 jail fee`)
@@ -202,6 +247,9 @@ export default function MonopolyGame() {
       }
 
       const partner = prev.players[partnerIndex]
+      if (currentPlayer.isBankrupt || partner.isBankrupt) {
+        return prev
+      }
       const offeredCash = trade.offerCash
       const requestedCash = trade.requestCash
 
@@ -292,6 +340,9 @@ export default function MonopolyGame() {
   }, [addLog])
 
   const handleRoll = useCallback(() => {
+    if (gameState.gameOver) {
+      return
+    }
     // Clear any pending end turn timeout
     if (endTurnTimeoutRef.current) {
       clearTimeout(endTurnTimeoutRef.current)
@@ -306,6 +357,10 @@ export default function MonopolyGame() {
       const total = dice[0] + dice[1]
       const isDoubles = dice[0] === dice[1]
       const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+      if (currentPlayer.isBankrupt) {
+        setGameState((prev) => ({ ...prev, rolling: false }))
+        return
+      }
 
       // Handle jail logic
       if (currentPlayer.inJail) {
@@ -526,6 +581,39 @@ export default function MonopolyGame() {
       }
 
       // Normal roll logic (not in jail)
+      // Check for 3rd consecutive doubles - go to jail immediately without moving
+      const newConsecutiveDoubles = isDoubles ? gameState.consecutiveDoubles + 1 : 0
+
+      if (isDoubles && newConsecutiveDoubles >= 3) {
+        // Third consecutive doubles - go directly to jail!
+        setGameState((prev) => {
+          const updatedPlayers = [...prev.players]
+          updatedPlayers[prev.currentPlayerIndex] = {
+            ...updatedPlayers[prev.currentPlayerIndex],
+            position: 10,
+            inJail: true,
+            jailTurns: 0,
+          }
+          return {
+            ...prev,
+            players: updatedPlayers,
+            diceValues: dice,
+            hasRolled: true,
+            rolling: false,
+            consecutiveDoubles: 0,
+          }
+        })
+
+        addLog(`${currentPlayer.name} rolled doubles (${dice[0]} + ${dice[1]}) for the third time in a row!`)
+        addLog(`${currentPlayer.name} was sent to Alcatraz for speeding!`)
+
+        // End turn after a short delay
+        endTurnTimeoutRef.current = setTimeout(() => {
+          handleEndTurn()
+        }, 2000)
+        return
+      }
+
       // Calculate new position
       let newPosition = currentPlayer.position + total
       let passedGo = false
@@ -624,6 +712,7 @@ export default function MonopolyGame() {
           diceValues: dice,
           hasRolled: true,
           rolling: false,
+          consecutiveDoubles: newConsecutiveDoubles,
           // Don't show dialog yet - wait for dice animation to complete
           selectedSpace: null,
           awaitingPropertyDecision: false,
@@ -669,6 +758,7 @@ export default function MonopolyGame() {
 
       // Log the roll
       let logMessage = `${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} = ${total}`
+      if (isDoubles) logMessage += " (doubles!)"
       if (passedGo) logMessage += " and passed GO (+$200)"
       addLog(logMessage)
       addLog(`Landed on ${landedSpace.name}`)
@@ -779,48 +869,49 @@ export default function MonopolyGame() {
         }
       }
 
-      // Check if we need to wait for modal interaction or auto-end turn
+      // Check if we need to wait for modal interaction or auto-complete action
       // We need to check after the dialog delay
       setTimeout(() => {
         setGameState((prev) => {
           if (prev.awaitingPropertyDecision || prev.awaitingSpecialSpace) {
-            // Player needs to interact with a modal - turn will end when modal closes
+            // Player needs to interact with a modal - action completes when modal closes
             return prev
           } else {
-            // Auto-end turn after a short delay (for non-interactive spaces)
+            // Auto-complete action after a short delay (for non-interactive spaces)
             endTurnTimeoutRef.current = setTimeout(() => {
-              handleEndTurn()
+              handleActionComplete()
             }, 1500)
             return prev
           }
         })
       }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY + 50) // Slightly after dialog appears
     }, 800)
-  }, [gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
+  }, [gameState.players, gameState.currentPlayerIndex, gameState.consecutiveDoubles, gameState.gameOver, addLog, handleEndTurn, handleActionComplete])
 
   const handleSpaceClick = useCallback((space: Space) => {
+    if (gameState.gameOver) return
     if (space.type === "property" || space.type === "railroad" || space.type === "utility") {
       setGameState((prev) => ({ ...prev, selectedSpace: space }))
     }
-  }, [])
+  }, [gameState.gameOver])
 
   const handleCloseCard = useCallback(() => {
     setGameState((prev) => {
-      // If we were awaiting a property decision, end the turn after closing
+      // If we were awaiting a property decision, complete the action after closing
       if (prev.awaitingPropertyDecision) {
         endTurnTimeoutRef.current = setTimeout(() => {
-          handleEndTurn()
+          handleActionComplete()
         }, 500)
       }
-      return { 
-        ...prev, 
-        selectedSpace: null, 
+      return {
+        ...prev,
+        selectedSpace: null,
         awaitingPropertyDecision: false,
         isOwnProperty: false,
         rentPaid: undefined,
       }
     })
-  }, [handleEndTurn])
+  }, [handleActionComplete])
 
   const handlePassProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -834,30 +925,31 @@ export default function MonopolyGame() {
       selectedSpace: null,
       awaitingPropertyDecision: false,
     }))
-    
-    // End turn after passing
+
+    // Complete action after passing (may roll again if doubles)
     endTurnTimeoutRef.current = setTimeout(() => {
-      handleEndTurn()
+      handleActionComplete()
     }, 500)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleActionComplete])
 
   const handleCloseSpecialCard = useCallback(() => {
     setGameState((prev) => {
-      // End the turn after closing the special space modal
+      // Complete action after closing the special space modal (may roll again if doubles)
       if (prev.awaitingSpecialSpace) {
         endTurnTimeoutRef.current = setTimeout(() => {
-          handleEndTurn()
+          handleActionComplete()
         }, 500)
       }
       return { ...prev, specialSpace: null, awaitingSpecialSpace: false }
     })
-  }, [handleEndTurn])
+  }, [handleActionComplete])
 
   const handleBuyProperty = useCallback(() => {
     const space = gameState.selectedSpace
     if (!space || !space.price) return
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (currentPlayer.isBankrupt) return
     if (currentPlayer.money < space.price) {
       addLog(`${currentPlayer.name} cannot afford ${space.name}`)
       return
@@ -882,12 +974,12 @@ export default function MonopolyGame() {
       }
     })
     addLog(`${currentPlayer.name} bought ${space.name} for $${space.price}`)
-    
-    // Auto-end turn after buying
+
+    // Complete action after buying (may roll again if doubles)
     endTurnTimeoutRef.current = setTimeout(() => {
-      handleEndTurn()
+      handleActionComplete()
     }, 500)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleEndTurn])
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleActionComplete])
 
   const handleMortgageProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -987,6 +1079,7 @@ export default function MonopolyGame() {
     if (currentHouseCount !== minHouseCount) return
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (currentPlayer.isBankrupt) return
     if (currentPlayer.money < space.houseCost) return
 
     const nextHouseCount = currentHouseCount + 1
@@ -1057,6 +1150,77 @@ export default function MonopolyGame() {
     handleCloseSpecialCard,
   ])
 
+  useEffect(() => {
+    if (!gameStarted || gameState.gameOver) {
+      return
+    }
+
+    const resolution = resolveBankruptcies(
+      gameState.players,
+      gameState.propertyOwners,
+      gameState.mortgagedProperties,
+      gameState.propertyHouses
+    )
+
+    const nextPlayers = resolution.hasChanges ? resolution.players : gameState.players
+    const winnerId = getWinnerId(nextPlayers)
+
+    if (!resolution.hasChanges && winnerId === gameState.winnerId) {
+      return
+    }
+
+    setGameState((prev) => ({
+      ...prev,
+      players: resolution.players,
+      propertyOwners: resolution.propertyOwners,
+      mortgagedProperties: resolution.mortgagedProperties,
+      propertyHouses: resolution.propertyHouses,
+      gameOver: winnerId !== null,
+      winnerId,
+    }))
+
+    resolution.newlyBankruptIds.forEach((playerId) => {
+      const playerName = gameState.players.find((player) => player.id === playerId)?.name
+      if (playerName) {
+        addLog(`${playerName} went bankrupt and is out of the game.`)
+      }
+    })
+
+    if (winnerId !== null) {
+      const winnerName = nextPlayers.find((player) => player.id === winnerId)?.name
+      if (winnerName) {
+        addLog(`${winnerName} wins the game!`)
+      }
+    }
+  }, [
+    gameStarted,
+    gameState.gameOver,
+    gameState.players,
+    gameState.propertyOwners,
+    gameState.mortgagedProperties,
+    gameState.propertyHouses,
+    gameState.winnerId,
+    addLog,
+  ])
+
+  useEffect(() => {
+    if (gameState.gameOver && endTurnTimeoutRef.current) {
+      clearTimeout(endTurnTimeoutRef.current)
+      endTurnTimeoutRef.current = null
+    }
+  }, [gameState.gameOver])
+
+  useEffect(() => {
+    if (gameState.gameOver) {
+      return
+    }
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (!currentPlayer?.isBankrupt) {
+      return
+    }
+    handleEndTurn()
+  }, [gameState.players, gameState.currentPlayerIndex, gameState.gameOver, handleEndTurn])
+
   if (showSplash) {
     return <SplashScreen onPlay={() => setShowSplash(false)} />
   }
@@ -1066,6 +1230,7 @@ export default function MonopolyGame() {
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+  const winner = gameState.winnerId !== null ? gameState.players.find((player) => player.id === gameState.winnerId) : null
   const selectedSpaceOwnerId =
     gameState.selectedSpace && gameState.propertyOwners[gameState.selectedSpace.id] !== undefined
       ? gameState.propertyOwners[gameState.selectedSpace.id]
@@ -1128,6 +1293,7 @@ export default function MonopolyGame() {
     gameState.hasRolled &&
     currentPlayer.money >= gameState.selectedSpace.price
 
+  const activePlayersCount = gameState.players.filter((player) => !player.isBankrupt).length
   const tradeDisabled =
     isTradeOpen ||
     gameState.rolling ||
@@ -1136,7 +1302,9 @@ export default function MonopolyGame() {
     gameState.selectedSpace !== null ||
     gameState.specialSpace !== null ||
     gameState.viewingPropertiesForPlayer !== null ||
-    gameState.players.length < 2
+    gameState.gameOver ||
+    currentPlayer.isBankrupt ||
+    activePlayersCount < 2
 
   const canMortgageSelectedSpace =
     gameState.selectedSpace &&
@@ -1179,7 +1347,7 @@ export default function MonopolyGame() {
             <PlayerPanel
               key={player.id}
               player={player}
-              isCurrentTurn={player.id === currentPlayer.id}
+              isCurrentTurn={player.id === currentPlayer.id && !player.isBankrupt && !gameState.gameOver}
               propertyOwners={gameState.propertyOwners}
               onPropertiesClick={() => handleViewPlayerProperties(player)}
             />
@@ -1199,6 +1367,8 @@ export default function MonopolyGame() {
           canAffordJailFee={currentPlayer.money >= 50}
           onTrade={handleOpenTrade}
           tradeDisabled={tradeDisabled}
+          gameOver={gameState.gameOver}
+          winnerName={winner?.name ?? undefined}
         />
       </div>
 
