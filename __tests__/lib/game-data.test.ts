@@ -11,6 +11,7 @@ import {
   getPropertiesByColorGroup,
   getOwnedProperty,
   getOwnedProperties,
+  getRentFromTable,
   calculateRent,
   type Space,
   type Player,
@@ -393,16 +394,34 @@ describe('Property and OwnedProperty', () => {
       expect(types.has('utility')).toBe(true)
     })
 
-    it('should have immutable shape: id, name, type, colorGroup, price, rent, mortgage', () => {
+    it('should have immutable shape: id, name, type, colorGroup, price, rent (RentTable), mortgage', () => {
       PROPERTIES.forEach(p => {
         expect(typeof p.id).toBe('number')
         expect(typeof p.name).toBe('string')
         expect(['property', 'railroad', 'utility']).toContain(p.type)
         expect(p.colorGroup).not.toBeNull()
         expect(typeof p.price).toBe('number')
-        expect(Array.isArray(p.rent)).toBe(true)
+        expect(p.rent).toBeDefined()
+        expect(['property', 'railroad', 'utility']).toContain(p.rent.type)
+        expect(p.rent.tiers).toBeDefined()
         expect(typeof p.mortgage).toBe('number')
       })
+    })
+
+    it('should have documented RentTable: property has base/house1..hotel, railroad has one..four, utility has multipliers', () => {
+      const propSpace = PROPERTIES.find(p => p.type === 'property')!
+      expect(propSpace.rent.type).toBe('property')
+      expect('base' in propSpace.rent.tiers).toBe(true)
+      expect('house1' in propSpace.rent.tiers).toBe(true)
+      expect('hotel' in propSpace.rent.tiers).toBe(true)
+      const railroadSpace = PROPERTIES.find(p => p.type === 'railroad')!
+      expect(railroadSpace.rent.type).toBe('railroad')
+      expect('one' in railroadSpace.rent.tiers).toBe(true)
+      expect('four' in railroadSpace.rent.tiers).toBe(true)
+      const utilitySpace = PROPERTIES.find(p => p.type === 'utility')!
+      expect(utilitySpace.rent.type).toBe('utility')
+      expect(utilitySpace.rent.tiers.oneUtilityMultiplier).toBe(4)
+      expect(utilitySpace.rent.tiers.twoUtilitiesMultiplier).toBe(10)
     })
 
     it('should match board space data for same id', () => {
@@ -515,7 +534,34 @@ describe('Property and OwnedProperty', () => {
     it('should allow Property to be used with calculateRent', () => {
       const prop = getPropertyById(1)!
       const rent = calculateRent(prop, 0, false)
-      expect(rent).toBe(prop.rent[0])
+      expect(prop.rent.type).toBe('property')
+      expect(rent).toBe(prop.rent.tiers.base)
+    })
+  })
+
+  describe('getRentFromTable', () => {
+    it('should return base rent for property with 0 houses', () => {
+      const prop = getPropertyById(1)!
+      expect(getRentFromTable(prop.rent, 0, false)).toBe(prop.rent.tiers.base)
+    })
+    it('should return double base for property with 0 houses when owning all in group', () => {
+      const prop = getPropertyById(1)!
+      expect(getRentFromTable(prop.rent, 0, true)).toBe(prop.rent.tiers.base * 2)
+    })
+    it('should return house tiers for property', () => {
+      const prop = getPropertyById(1)!
+      expect(getRentFromTable(prop.rent, 1, false)).toBe(prop.rent.tiers.house1)
+      expect(getRentFromTable(prop.rent, 5, false)).toBe(prop.rent.tiers.hotel)
+    })
+    it('should return railroad tiers by count (0 = one railroad)', () => {
+      const railroad = getPropertyById(5)!
+      expect(railroad.rent.type).toBe('railroad')
+      expect(getRentFromTable(railroad.rent, 0, false)).toBe(railroad.rent.tiers.one)
+      expect(getRentFromTable(railroad.rent, 3, false)).toBe(railroad.rent.tiers.four)
+    })
+    it('should return 0 for utility (dice multiplier at call site)', () => {
+      const utility = getPropertyById(12)!
+      expect(getRentFromTable(utility.rent, 0, false)).toBe(0)
     })
   })
 })

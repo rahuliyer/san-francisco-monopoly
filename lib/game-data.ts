@@ -22,6 +22,45 @@ export interface Space {
 export type PropertyType = "property" | "railroad" | "utility"
 
 /**
+ * Rent tiers for a color-group property. Indexed by house count (0 = no houses, 5 = hotel).
+ * Immutable; all fields readonly.
+ */
+export interface PropertyRentTiers {
+  readonly base: number
+  readonly house1: number
+  readonly house2: number
+  readonly house3: number
+  readonly house4: number
+  readonly hotel: number
+}
+
+/**
+ * Rent tiers for a railroad. Indexed by number of railroads owned (1–4).
+ * Immutable; all fields readonly.
+ */
+export interface RailroadRentTiers {
+  readonly one: number
+  readonly two: number
+  readonly three: number
+  readonly four: number
+}
+
+/**
+ * Utility rent is dice × multiplier. No fixed tiers; multipliers are 4 (one utility) and 10 (both).
+ * Immutable; all fields readonly.
+ */
+export interface UtilityRentTiers {
+  readonly oneUtilityMultiplier: number
+  readonly twoUtilitiesMultiplier: number
+}
+
+/** Documented rent structure per property type. Discriminated by type. */
+export type RentTable =
+  | { readonly type: "property"; readonly tiers: PropertyRentTiers }
+  | { readonly type: "railroad"; readonly tiers: RailroadRentTiers }
+  | { readonly type: "utility"; readonly tiers: UtilityRentTiers }
+
+/**
  * Immutable definition of a purchasable board space (property, railroad, or utility).
  * All fields are readonly; use this for static definition data (name, color, rent, etc.).
  */
@@ -31,7 +70,7 @@ export interface Property {
   readonly type: PropertyType
   readonly colorGroup: NonNullable<ColorGroup>
   readonly price: number
-  readonly rent: readonly number[]
+  readonly rent: RentTable
   readonly houseCost?: number
   readonly mortgage: number
   readonly image?: string
@@ -126,11 +165,46 @@ export const BOARD_SPACES: Space[] = [
 
 const PURCHASABLE_SPACE_TYPES: SpaceType[] = ["property", "railroad", "utility"]
 
+const UTILITY_MULTIPLIERS: UtilityRentTiers = {
+  oneUtilityMultiplier: 4,
+  twoUtilitiesMultiplier: 10,
+} as const
+
 function isPurchasableSpace(space: Space): space is Space & { type: PropertyType; colorGroup: NonNullable<ColorGroup>; price: number; mortgage: number } {
   return PURCHASABLE_SPACE_TYPES.includes(space.type) &&
     space.colorGroup != null &&
     space.price != null &&
     space.mortgage != null
+}
+
+/** Builds an immutable RentTable from a Space's rent array (for property/railroad) or fixed multipliers (utility). */
+function buildRentTable(space: Space & { type: PropertyType }): RentTable {
+  const arr = space.rent ?? []
+  if (space.type === "property" && arr.length >= 6) {
+    return {
+      type: "property",
+      tiers: {
+        base: arr[0],
+        house1: arr[1],
+        house2: arr[2],
+        house3: arr[3],
+        house4: arr[4],
+        hotel: arr[5],
+      },
+    }
+  }
+  if (space.type === "railroad" && arr.length >= 4) {
+    return {
+      type: "railroad",
+      tiers: {
+        one: arr[0],
+        two: arr[1],
+        three: arr[2],
+        four: arr[3],
+      },
+    }
+  }
+  return { type: "utility", tiers: UTILITY_MULTIPLIERS }
 }
 
 /** Immutable list of all purchasable properties (property, railroad, utility). Derived from board. */
@@ -141,7 +215,7 @@ export const PROPERTIES: readonly Property[] = BOARD_SPACES.filter(isPurchasable
     type: s.type as PropertyType,
     colorGroup: s.colorGroup,
     price: s.price,
-    rent: (s.rent ?? []) as readonly number[],
+    rent: buildRentTable(s),
     houseCost: s.houseCost,
     mortgage: s.mortgage,
     image: s.image,
@@ -245,19 +319,51 @@ export function getOwnedProperties(
     .filter((op): op is OwnedProperty => op != null)
 }
 
+/**
+ * Returns rent amount from a RentTable given house count (0–5 for property) or railroad count (0–3 for railroad).
+ * For utilities returns 0 (rent is dice × multiplier, calculated at call site).
+ */
+export function getRentFromTable(
+  rentTable: RentTable,
+  index: number,
+  ownsAllInGroup?: boolean
+): number {
+  switch (rentTable.type) {
+    case "property": {
+      const t = rentTable.tiers
+      const byHouse: number[] = [t.base, t.house1, t.house2, t.house3, t.house4, t.hotel]
+      const rent = byHouse[Math.min(index, 5)] ?? t.base
+      if (index === 0 && ownsAllInGroup) return t.base * 2
+      return rent
+    }
+    case "railroad": {
+      const t = rentTable.tiers
+      const byCount: number[] = [t.one, t.two, t.three, t.four]
+      return byCount[Math.min(index, 3)] ?? 25
+    }
+    case "utility":
+      return 0
+  }
+}
+
 export function calculateRent(
   spaceOrProperty: Space | Property,
   houses: number,
   ownsAllInGroup: boolean
 ): number {
-  if (!spaceOrProperty.rent || spaceOrProperty.rent.length === 0) return 0
-  if (spaceOrProperty.type === "railroad") {
-    return spaceOrProperty.rent[houses] ?? 25
+  const rent = spaceOrProperty.rent
+  if (rent == null) return 0
+  if (Array.isArray(rent)) {
+    if (rent.length === 0) return 0
+    if (spaceOrProperty.type === "railroad") {
+      return rent[houses] ?? 25
+    }
+    if (houses === 0 && ownsAllInGroup) {
+      return rent[0] * 2
+    }
+    return rent[houses] ?? rent[0]
   }
-  if (houses === 0 && ownsAllInGroup) {
-    return spaceOrProperty.rent[0] * 2
-  }
-  return spaceOrProperty.rent[houses] ?? spaceOrProperty.rent[0]
+  return getRentFromTable(rent, houses, ownsAllInGroup)
 }
 
 // Card types for Chance and Community Chest
