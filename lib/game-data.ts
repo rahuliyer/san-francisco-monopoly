@@ -18,6 +18,36 @@ export interface Space {
   image?: string
 }
 
+/** Purchasable space type: property, railroad, or utility. */
+export type PropertyType = "property" | "railroad" | "utility"
+
+/**
+ * Immutable definition of a purchasable board space (property, railroad, or utility).
+ * All fields are readonly; use this for static definition data (name, color, rent, etc.).
+ */
+export interface Property {
+  readonly id: number
+  readonly name: string
+  readonly type: PropertyType
+  readonly colorGroup: NonNullable<ColorGroup>
+  readonly price: number
+  readonly rent: readonly number[]
+  readonly houseCost?: number
+  readonly mortgage: number
+  readonly image?: string
+}
+
+/**
+ * Immutable game state for an owned property.
+ * Combines the static Property definition with runtime state (owner, houses, mortgage).
+ */
+export interface OwnedProperty {
+  readonly property: Property
+  readonly ownerId: number
+  readonly houseCount: number
+  readonly isMortgaged: boolean
+}
+
 export interface Player {
   id: number
   name: string
@@ -94,6 +124,30 @@ export const BOARD_SPACES: Space[] = [
   { id: 39, name: 'Sea Cliff', type: 'property', colorGroup: 'dark-blue', price: 400, rent: [50, 200, 600, 1400, 1700, 2000], houseCost: 200, mortgage: 200, image: '/images/sea-cliff.jpg' },
 ]
 
+const PURCHASABLE_SPACE_TYPES: SpaceType[] = ["property", "railroad", "utility"]
+
+function isPurchasableSpace(space: Space): space is Space & { type: PropertyType; colorGroup: NonNullable<ColorGroup>; price: number; mortgage: number } {
+  return PURCHASABLE_SPACE_TYPES.includes(space.type) &&
+    space.colorGroup != null &&
+    space.price != null &&
+    space.mortgage != null
+}
+
+/** Immutable list of all purchasable properties (property, railroad, utility). Derived from board. */
+export const PROPERTIES: readonly Property[] = BOARD_SPACES.filter(isPurchasableSpace).map(
+  (s): Property => ({
+    id: s.id,
+    name: s.name,
+    type: s.type as PropertyType,
+    colorGroup: s.colorGroup,
+    price: s.price,
+    rent: (s.rent ?? []) as readonly number[],
+    houseCost: s.houseCost,
+    mortgage: s.mortgage,
+    image: s.image,
+  })
+)
+
 export const PLAYER_TOKENS = [
   { name: 'Cable Car', icon: '🚃', color: '#C4451A' },
   { name: 'Crab', icon: '🦀', color: '#2563EB' },
@@ -139,15 +193,71 @@ export function getSpacesByColorGroup(colorGroup: ColorGroup): Space[] {
   return BOARD_SPACES.filter(space => space.colorGroup === colorGroup)
 }
 
-export function calculateRent(space: Space, houses: number, ownsAllInGroup: boolean): number {
-  if (!space.rent) return 0
-  if (space.type === 'railroad') {
-    return space.rent[houses] || 25
+/** Returns the immutable Property for a purchasable space id, or null if not purchasable. */
+export function getPropertyById(spaceId: number): Property | null {
+  return PROPERTIES.find((p) => p.id === spaceId) ?? null
+}
+
+/** Returns properties in the same color group (for Property type only; railroads/utilities use their own grouping). */
+export function getPropertiesByColorGroup(colorGroup: NonNullable<ColorGroup>): readonly Property[] {
+  return PROPERTIES.filter((p) => p.colorGroup === colorGroup)
+}
+
+/**
+ * Builds an immutable OwnedProperty view for a space from the game's ownership maps.
+ * Returns null if the space is not owned.
+ */
+export function getOwnedProperty(
+  spaceId: number,
+  propertyOwners: Record<number, number>,
+  propertyHouses: Record<number, number>,
+  mortgagedProperties: Record<number, boolean>
+): OwnedProperty | null {
+  const ownerId = propertyOwners[spaceId]
+  if (ownerId === undefined) return null
+  const property = getPropertyById(spaceId)
+  if (!property) return null
+  return {
+    property,
+    ownerId,
+    houseCount: propertyHouses[spaceId] ?? 0,
+    isMortgaged: mortgagedProperties[spaceId] === true,
+  }
+}
+
+/**
+ * Returns all owned properties as immutable OwnedProperty views.
+ */
+export function getOwnedProperties(
+  propertyOwners: Record<number, number>,
+  propertyHouses: Record<number, number>,
+  mortgagedProperties: Record<number, boolean>
+): readonly OwnedProperty[] {
+  return Object.keys(propertyOwners)
+    .map((id) =>
+      getOwnedProperty(
+        Number(id),
+        propertyOwners,
+        propertyHouses,
+        mortgagedProperties
+      )
+    )
+    .filter((op): op is OwnedProperty => op != null)
+}
+
+export function calculateRent(
+  spaceOrProperty: Space | Property,
+  houses: number,
+  ownsAllInGroup: boolean
+): number {
+  if (!spaceOrProperty.rent || spaceOrProperty.rent.length === 0) return 0
+  if (spaceOrProperty.type === "railroad") {
+    return spaceOrProperty.rent[houses] ?? 25
   }
   if (houses === 0 && ownsAllInGroup) {
-    return space.rent[0] * 2
+    return spaceOrProperty.rent[0] * 2
   }
-  return space.rent[houses] || space.rent[0]
+  return spaceOrProperty.rent[houses] ?? spaceOrProperty.rent[0]
 }
 
 // Card types for Chance and Community Chest
