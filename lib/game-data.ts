@@ -1,5 +1,7 @@
 // SF Monopoly Game Data
 
+import { GAME_CONSTANTS } from "@/lib/constants"
+
 export type SpaceType = 'property' | 'railroad' | 'utility' | 'tax' | 'chance' | 'community-chest' | 'go' | 'jail' | 'free-parking' | 'go-to-jail'
 
 export type ColorGroup = 'brown' | 'light-blue' | 'pink' | 'orange' | 'red' | 'yellow' | 'green' | 'dark-blue' | 'railroad' | 'utility' | null
@@ -99,7 +101,8 @@ export const PLAYER_TOKENS = [
   { name: 'Golden Gate', icon: '🌉', color: '#9333EA' },
 ]
 
-export const STARTING_MONEY = 1500
+// Re-export for backwards compatibility
+export const STARTING_MONEY = GAME_CONSTANTS.STARTING_MONEY
 
 export function createPlayer(id: number, name: string, tokenIndex: number): Player {
   const token = PLAYER_TOKENS[tokenIndex]
@@ -108,7 +111,7 @@ export function createPlayer(id: number, name: string, tokenIndex: number): Play
     name,
     color: token.color,
     token: token.icon,
-    money: STARTING_MONEY,
+    money: GAME_CONSTANTS.STARTING_MONEY,
     position: 0,
     properties: [],
     inJail: false,

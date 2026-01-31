@@ -1,4 +1,4 @@
-import { calculateRepairsCost } from '@/app/page'
+import { calculateRepairsCost } from '@/lib/mechanics/cards'
 import { BOARD_SPACES } from '@/lib/game-data'
 
 describe('calculateRepairsCost', () => {

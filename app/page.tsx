@@ -22,13 +22,23 @@ import {
   getSpacesByColorGroup,
 } from "@/lib/game-data"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies } from "@/lib/game-status"
+import { GAME_CONSTANTS } from "@/lib/constants"
+import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
 
-// Duration to wait for dice animation to complete after rolling stops (ms)
-const DICE_ANIMATION_DURATION = 700
-// Additional delay after dice animation before showing card dialog (ms)
-const CARD_SHOW_DELAY = 400
-const MORTGAGE_INTEREST_RATE = 0.1
-const MAX_HOUSES = 5
+const {
+  DICE_ANIMATION_DURATION,
+  CARD_SHOW_DELAY,
+  MORTGAGE_INTEREST_RATE,
+  MAX_HOUSES,
+  BOARD_SIZE,
+  JAIL_POSITION,
+  GO_BONUS,
+  INCOME_TAX,
+  LUXURY_TAX,
+  JAIL_FEE,
+  MAX_JAIL_TURNS,
+  LOG_HISTORY_SIZE,
+} = GAME_CONSTANTS
 
 // Generate random initial dice values (for display only)
 function getRandomInitialDice(): [number, number] {
@@ -40,35 +50,6 @@ function getRandomInitialDice(): [number, number] {
 
 function calculateUnmortgageCost(mortgageValue: number): number {
   return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
-}
-
-export function calculateRepairsCost(
-  playerIndex: number,
-  propertyOwners: Record<number, number>,
-  propertyHouses: Record<number, number>,
-  houseAmount: number,
-  hotelAmount: number
-) {
-  let houseCount = 0
-  let hotelCount = 0
-
-  Object.entries(propertyOwners).forEach(([spaceId, ownerId]) => {
-    if (ownerId !== playerIndex) return
-    const space = BOARD_SPACES[Number(spaceId)]
-    if (space?.type !== "property") return
-    const buildings = propertyHouses[Number(spaceId)] ?? 0
-    if (buildings >= MAX_HOUSES) {
-      hotelCount += 1
-    } else {
-      houseCount += buildings
-    }
-  })
-
-  return {
-    houseCount,
-    hotelCount,
-    total: houseCount * houseAmount + hotelCount * hotelAmount,
-  }
 }
 
 interface GameState {
@@ -143,7 +124,7 @@ export default function MonopolyGame() {
   const addLog = useCallback((message: string) => {
     setGameState((prev) => ({
       ...prev,
-      gameLog: [...prev.gameLog.slice(-9), message],
+      gameLog: [...prev.gameLog.slice(-LOG_HISTORY_SIZE), message],
     }))
   }, [])
 
@@ -207,9 +188,9 @@ export default function MonopolyGame() {
     if (currentPlayer.isBankrupt) {
       return
     }
-    
-    if (currentPlayer.money < 50) {
-      addLog(`${currentPlayer.name} cannot afford the $50 jail fee`)
+
+    if (currentPlayer.money < JAIL_FEE) {
+      addLog(`${currentPlayer.name} cannot afford the $${JAIL_FEE} jail fee`)
       return
     }
 
@@ -217,14 +198,14 @@ export default function MonopolyGame() {
       const updatedPlayers = [...prev.players]
       updatedPlayers[prev.currentPlayerIndex] = {
         ...updatedPlayers[prev.currentPlayerIndex],
-        money: updatedPlayers[prev.currentPlayerIndex].money - 50,
+        money: updatedPlayers[prev.currentPlayerIndex].money - JAIL_FEE,
         inJail: false,
         jailTurns: 0,
       }
       return { ...prev, players: updatedPlayers }
     })
-    
-    addLog(`${currentPlayer.name} paid $50 to leave Alcatraz`)
+
+    addLog(`${currentPlayer.name} paid $${JAIL_FEE} to leave Alcatraz`)
   }, [gameState.players, gameState.currentPlayerIndex, addLog])
 
   const handleOpenTrade = useCallback(() => {
@@ -369,8 +350,8 @@ export default function MonopolyGame() {
           let newPosition = currentPlayer.position + total
           let passedGo = false
 
-          if (newPosition >= 40) {
-            newPosition = newPosition - 40
+          if (newPosition >= BOARD_SIZE) {
+            newPosition = newPosition - BOARD_SIZE
             passedGo = true
           }
 
@@ -390,7 +371,7 @@ export default function MonopolyGame() {
               ...updatedPlayers[prev.currentPlayerIndex],
               position: newPosition,
               money: passedGo
-                ? updatedPlayers[prev.currentPlayerIndex].money + 200
+                ? updatedPlayers[prev.currentPlayerIndex].money + GO_BONUS
                 : updatedPlayers[prev.currentPlayerIndex].money,
               inJail: false,
               jailTurns: 0,
@@ -400,7 +381,7 @@ export default function MonopolyGame() {
             if (landedSpace.type === "go-to-jail") {
               updatedPlayers[prev.currentPlayerIndex] = {
                 ...updatedPlayers[prev.currentPlayerIndex],
-                position: 10,
+                position: JAIL_POSITION,
                 inJail: true,
                 jailTurns: 0,
               }
@@ -436,7 +417,7 @@ export default function MonopolyGame() {
           if (landedSpace.type === "go-to-jail") {
             addLog(`${currentPlayer.name} was sent back to Alcatraz!`)
           } else if (landedSpace.type === "tax") {
-            const taxAmount = landedSpace.name === "Income Tax" ? 200 : 100
+            const taxAmount = landedSpace.name === "Income Tax" ? INCOME_TAX : LUXURY_TAX
             setGameState((prev) => {
               const updatedPlayers = [...prev.players]
               updatedPlayers[prev.currentPlayerIndex].money -= taxAmount
@@ -446,79 +427,23 @@ export default function MonopolyGame() {
           } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
             const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
             addLog(`Drew: ${card.text}`)
-            
-            let repairsSummary: { total: number; houseCount: number; hotelCount: number } | null = null
+
             setGameState((prev) => {
-              const updatedPlayers = [...prev.players]
-              const playerIndex = prev.currentPlayerIndex
-              
-              switch (card.effect.type) {
-                case 'collect':
-                  updatedPlayers[playerIndex].money += card.effect.amount
-                  break
-                case 'pay':
-                  updatedPlayers[playerIndex].money -= card.effect.amount
-                  break
-                case 'advance-to-go':
-                  updatedPlayers[playerIndex].position = 0
-                  updatedPlayers[playerIndex].money += 200
-                  break
-                case 'advance':
-                  if (card.effect.position < updatedPlayers[playerIndex].position) {
-                    updatedPlayers[playerIndex].money += 200
-                  }
-                  updatedPlayers[playerIndex].position = card.effect.position
-                  break
-                case 'go-to-jail':
-                  updatedPlayers[playerIndex].position = 10
-                  updatedPlayers[playerIndex].inJail = true
-                  updatedPlayers[playerIndex].jailTurns = 0
-                  break
-                case 'go-back':
-                  updatedPlayers[playerIndex].position = (updatedPlayers[playerIndex].position - card.effect.spaces + 40) % 40
-                  break
-                case 'collect-from-players':
-                  const collectAmount = card.effect.amount * (prev.players.length - 1)
-                  updatedPlayers[playerIndex].money += collectAmount
-                  for (let i = 0; i < updatedPlayers.length; i++) {
-                    if (i !== playerIndex) {
-                      updatedPlayers[i].money -= card.effect.amount
-                    }
-                  }
-                  break
-                case 'pay-to-players':
-                  const payAmount = card.effect.amount * (prev.players.length - 1)
-                  updatedPlayers[playerIndex].money -= payAmount
-                  for (let i = 0; i < updatedPlayers.length; i++) {
-                    if (i !== playerIndex) {
-                      updatedPlayers[i].money += card.effect.amount
-                    }
-                  }
-                  break
-                case 'repairs':
-                  repairsSummary = calculateRepairsCost(
-                    playerIndex,
-                    prev.propertyOwners,
-                    prev.propertyHouses,
-                    card.effect.houseAmount,
-                    card.effect.hotelAmount
-                  )
-                  updatedPlayers[playerIndex].money -= repairsSummary.total
-                  break
+              const { updatedPlayers, repairsSummary } = applyCardEffect(
+                card,
+                prev.players,
+                prev.currentPlayerIndex,
+                prev.propertyOwners,
+                prev.propertyHouses
+              )
+
+              if (repairsSummary) {
+                const details = formatRepairsSummary(repairsSummary)
+                setTimeout(() => addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`), 0)
               }
-              
+
               return { ...prev, players: updatedPlayers, drawnCard: card }
             })
-
-            if (repairsSummary) {
-              const houseLabel = repairsSummary.houseCount === 1 ? "house" : "houses"
-              const hotelLabel = repairsSummary.hotelCount === 1 ? "hotel" : "hotels"
-              const details =
-                repairsSummary.houseCount || repairsSummary.hotelCount
-                  ? ` (${repairsSummary.houseCount} ${houseLabel}, ${repairsSummary.hotelCount} ${hotelLabel})`
-                  : ""
-              addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`)
-            }
           }
 
           // Check if we need to wait for modal interaction or auto-end turn
@@ -539,20 +464,20 @@ export default function MonopolyGame() {
         } else {
           // Player didn't roll doubles - still in jail
           const newJailTurns = currentPlayer.jailTurns + 1
-          
+
           setGameState((prev) => {
             const updatedPlayers = [...prev.players]
-            
-            if (newJailTurns >= 3) {
-              // Third turn without doubles - must pay $50 and move
+
+            if (newJailTurns >= MAX_JAIL_TURNS) {
+              // Third turn without doubles - must pay and move
               updatedPlayers[prev.currentPlayerIndex] = {
                 ...updatedPlayers[prev.currentPlayerIndex],
-                money: updatedPlayers[prev.currentPlayerIndex].money - 50,
+                money: updatedPlayers[prev.currentPlayerIndex].money - JAIL_FEE,
                 inJail: false,
                 jailTurns: 0,
               }
               addLog(`${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} (no doubles)`)
-              addLog(`${currentPlayer.name} paid $50 after 3 turns in Alcatraz`)
+              addLog(`${currentPlayer.name} paid $${JAIL_FEE} after ${MAX_JAIL_TURNS} turns in Alcatraz`)
             } else {
               // Stay in jail, increment turn counter
               updatedPlayers[prev.currentPlayerIndex] = {
@@ -560,7 +485,7 @@ export default function MonopolyGame() {
                 jailTurns: newJailTurns,
               }
               addLog(`${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} (no doubles)`)
-              addLog(`${currentPlayer.name} remains in Alcatraz (${3 - newJailTurns} turns left)`)
+              addLog(`${currentPlayer.name} remains in Alcatraz (${MAX_JAIL_TURNS - newJailTurns} turns left)`)
             }
 
             return {
@@ -584,13 +509,13 @@ export default function MonopolyGame() {
       // Check for 3rd consecutive doubles - go to jail immediately without moving
       const newConsecutiveDoubles = isDoubles ? gameState.consecutiveDoubles + 1 : 0
 
-      if (isDoubles && newConsecutiveDoubles >= 3) {
+      if (isDoubles && newConsecutiveDoubles >= MAX_JAIL_TURNS) {
         // Third consecutive doubles - go directly to jail!
         setGameState((prev) => {
           const updatedPlayers = [...prev.players]
           updatedPlayers[prev.currentPlayerIndex] = {
             ...updatedPlayers[prev.currentPlayerIndex],
-            position: 10,
+            position: JAIL_POSITION,
             inJail: true,
             jailTurns: 0,
           }
@@ -618,8 +543,8 @@ export default function MonopolyGame() {
       let newPosition = currentPlayer.position + total
       let passedGo = false
 
-      if (newPosition >= 40) {
-        newPosition = newPosition - 40
+      if (newPosition >= BOARD_SIZE) {
+        newPosition = newPosition - BOARD_SIZE
         passedGo = true
       }
 
@@ -653,7 +578,7 @@ export default function MonopolyGame() {
           ...updatedPlayers[prev.currentPlayerIndex],
           position: newPosition,
           money: passedGo
-            ? updatedPlayers[prev.currentPlayerIndex].money + 200
+            ? updatedPlayers[prev.currentPlayerIndex].money + GO_BONUS
             : updatedPlayers[prev.currentPlayerIndex].money,
         }
 
@@ -661,7 +586,7 @@ export default function MonopolyGame() {
         if (landedSpace.type === "go-to-jail") {
           updatedPlayers[prev.currentPlayerIndex] = {
             ...updatedPlayers[prev.currentPlayerIndex],
-            position: 10,
+            position: JAIL_POSITION,
             inJail: true,
             jailTurns: 0,
           }
@@ -759,7 +684,7 @@ export default function MonopolyGame() {
       // Log the roll
       let logMessage = `${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} = ${total}`
       if (isDoubles) logMessage += " (doubles!)"
-      if (passedGo) logMessage += " and passed GO (+$200)"
+      if (passedGo) logMessage += ` and passed GO (+$${GO_BONUS})`
       addLog(logMessage)
       addLog(`Landed on ${landedSpace.name}`)
 
@@ -779,7 +704,7 @@ export default function MonopolyGame() {
       if (landedSpace.type === "go-to-jail") {
         addLog(`${currentPlayer.name} was sent to Alcatraz!`)
       } else if (landedSpace.type === "tax") {
-        const taxAmount = landedSpace.name === "Income Tax" ? 200 : 100
+        const taxAmount = landedSpace.name === "Income Tax" ? INCOME_TAX : LUXURY_TAX
         setGameState((prev) => {
           const updatedPlayers = [...prev.players]
           updatedPlayers[prev.currentPlayerIndex].money -= taxAmount
@@ -787,86 +712,25 @@ export default function MonopolyGame() {
         })
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
       } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
-        // Draw a card
         const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
         addLog(`Drew: ${card.text}`)
-        
-        let repairsSummary: { total: number; houseCount: number; hotelCount: number } | null = null
-        // Apply card effect
+
         setGameState((prev) => {
-          const updatedPlayers = [...prev.players]
-          const playerIndex = prev.currentPlayerIndex
-          
-          switch (card.effect.type) {
-            case 'collect':
-              updatedPlayers[playerIndex].money += card.effect.amount
-              break
-            case 'pay':
-              updatedPlayers[playerIndex].money -= card.effect.amount
-              break
-            case 'advance-to-go':
-              updatedPlayers[playerIndex].position = 0
-              updatedPlayers[playerIndex].money += 200
-              break
-            case 'advance':
-              // Check if we pass GO
-              if (card.effect.position < updatedPlayers[playerIndex].position) {
-                updatedPlayers[playerIndex].money += 200
-              }
-              updatedPlayers[playerIndex].position = card.effect.position
-              break
-            case 'go-to-jail':
-              updatedPlayers[playerIndex].position = 10
-              updatedPlayers[playerIndex].inJail = true
-              updatedPlayers[playerIndex].jailTurns = 0
-              break
-            case 'go-back':
-              updatedPlayers[playerIndex].position = (updatedPlayers[playerIndex].position - card.effect.spaces + 40) % 40
-              break
-            case 'collect-from-players':
-              // Collect from each other player
-              const collectAmount = card.effect.amount * (prev.players.length - 1)
-              updatedPlayers[playerIndex].money += collectAmount
-              for (let i = 0; i < updatedPlayers.length; i++) {
-                if (i !== playerIndex) {
-                  updatedPlayers[i].money -= card.effect.amount
-                }
-              }
-              break
-            case 'pay-to-players':
-              // Pay each other player
-              const payAmount = card.effect.amount * (prev.players.length - 1)
-              updatedPlayers[playerIndex].money -= payAmount
-              for (let i = 0; i < updatedPlayers.length; i++) {
-                if (i !== playerIndex) {
-                  updatedPlayers[i].money += card.effect.amount
-                }
-              }
-              break
-            case 'repairs':
-              repairsSummary = calculateRepairsCost(
-                playerIndex,
-                prev.propertyOwners,
-                prev.propertyHouses,
-                card.effect.houseAmount,
-                card.effect.hotelAmount
-              )
-              updatedPlayers[playerIndex].money -= repairsSummary.total
-              break
+          const { updatedPlayers, repairsSummary } = applyCardEffect(
+            card,
+            prev.players,
+            prev.currentPlayerIndex,
+            prev.propertyOwners,
+            prev.propertyHouses
+          )
+
+          if (repairsSummary) {
+            const details = formatRepairsSummary(repairsSummary)
+            setTimeout(() => addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`), 0)
           }
-          
+
           return { ...prev, players: updatedPlayers, drawnCard: card }
         })
-
-        if (repairsSummary) {
-          const houseLabel = repairsSummary.houseCount === 1 ? "house" : "houses"
-          const hotelLabel = repairsSummary.hotelCount === 1 ? "hotel" : "hotels"
-          const details =
-            repairsSummary.houseCount || repairsSummary.hotelCount
-              ? ` (${repairsSummary.houseCount} ${houseLabel}, ${repairsSummary.hotelCount} ${hotelLabel})`
-              : ""
-          addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`)
-        }
       }
 
       // Check if we need to wait for modal interaction or auto-complete action
@@ -1364,7 +1228,7 @@ export default function MonopolyGame() {
           isInJail={currentPlayer.inJail}
           jailTurns={currentPlayer.jailTurns}
           onPayJailFee={handlePayJailFee}
-          canAffordJailFee={currentPlayer.money >= 50}
+          canAffordJailFee={currentPlayer.money >= JAIL_FEE}
           onTrade={handleOpenTrade}
           tradeDisabled={tradeDisabled}
           gameOver={gameState.gameOver}
