@@ -2,15 +2,22 @@ import {
   BOARD_SPACES,
   COLOR_MAP,
   PLAYER_TOKENS,
+  PROPERTIES,
   STARTING_MONEY,
   createPlayer,
   rollDice,
   getSpacesByColorGroup,
+  getPropertyById,
+  getPropertiesByColorGroup,
+  getOwnedProperty,
+  getOwnedProperties,
   calculateRent,
   type Space,
   type Player,
   type ColorGroup,
   type SpaceType,
+  type Property,
+  type OwnedProperty,
 } from '@/lib/game-data'
 
 describe('game-data constants', () => {
@@ -369,6 +376,147 @@ describe('getSpacesByColorGroup', () => {
     // There are several spaces with null colorGroup (GO, Jail, etc.)
     expect(nullSpaces.length).toBeGreaterThan(0)
     expect(nullSpaces.every(s => s.colorGroup === null)).toBe(true)
+  })
+})
+
+describe('Property and OwnedProperty', () => {
+  describe('PROPERTIES', () => {
+    it('should have 28 purchasable spaces (22 properties + 4 railroads + 2 utilities)', () => {
+      expect(PROPERTIES).toHaveLength(28)
+    })
+
+    it('should only include property, railroad, and utility types', () => {
+      const types = new Set(PROPERTIES.map(p => p.type))
+      expect(types.size).toBeLessThanOrEqual(3)
+      expect(types.has('property')).toBe(true)
+      expect(types.has('railroad')).toBe(true)
+      expect(types.has('utility')).toBe(true)
+    })
+
+    it('should have immutable shape: id, name, type, colorGroup, price, rent, mortgage', () => {
+      PROPERTIES.forEach(p => {
+        expect(typeof p.id).toBe('number')
+        expect(typeof p.name).toBe('string')
+        expect(['property', 'railroad', 'utility']).toContain(p.type)
+        expect(p.colorGroup).not.toBeNull()
+        expect(typeof p.price).toBe('number')
+        expect(Array.isArray(p.rent)).toBe(true)
+        expect(typeof p.mortgage).toBe('number')
+      })
+    })
+
+    it('should match board space data for same id', () => {
+      PROPERTIES.forEach(prop => {
+        const space = BOARD_SPACES[prop.id]
+        expect(space).toBeDefined()
+        expect(prop.name).toBe(space.name)
+        expect(prop.type).toBe(space.type)
+        expect(prop.price).toBe(space.price)
+        expect(prop.mortgage).toBe(space.mortgage)
+      })
+    })
+  })
+
+  describe('getPropertyById', () => {
+    it('should return Property for purchasable space id', () => {
+      const prop = getPropertyById(1)
+      expect(prop).not.toBeNull()
+      expect(prop!.id).toBe(1)
+      expect(prop!.name).toBe('Tenderloin')
+      expect(prop!.type).toBe('property')
+      expect(prop!.price).toBe(60)
+    })
+
+    it('should return null for non-purchasable space id', () => {
+      expect(getPropertyById(0)).toBeNull()   // GO
+      expect(getPropertyById(10)).toBeNull()  // Jail
+      expect(getPropertyById(2)).toBeNull()   // Community Chest
+    })
+
+    it('should return same Property reference for same id', () => {
+      const a = getPropertyById(5)
+      const b = getPropertyById(5)
+      expect(a).toBe(b)
+    })
+  })
+
+  describe('getPropertiesByColorGroup', () => {
+    it('should return brown properties (Property type)', () => {
+      const brown = getPropertiesByColorGroup('brown')
+      expect(brown).toHaveLength(2)
+      expect(brown.every(p => p.colorGroup === 'brown')).toBe(true)
+      expect(brown.map(p => p.name)).toEqual(['Tenderloin', 'Bayview'])
+    })
+
+    it('should return railroads for railroad color group', () => {
+      const railroads = getPropertiesByColorGroup('railroad')
+      expect(railroads).toHaveLength(4)
+      expect(railroads.every(p => p.type === 'railroad')).toBe(true)
+    })
+  })
+
+  describe('getOwnedProperty', () => {
+    it('should return null when space is not owned', () => {
+      const owners: Record<number, number> = {}
+      const houses: Record<number, number> = {}
+      const mortgaged: Record<number, boolean> = {}
+      expect(getOwnedProperty(1, owners, houses, mortgaged)).toBeNull()
+    })
+
+    it('should return OwnedProperty when space is owned', () => {
+      const owners: Record<number, number> = { 1: 0 }
+      const houses: Record<number, number> = { 1: 2 }
+      const mortgaged: Record<number, boolean> = { 1: false }
+      const op = getOwnedProperty(1, owners, houses, mortgaged)
+      expect(op).not.toBeNull()
+      expect(op!.property.id).toBe(1)
+      expect(op!.property.name).toBe('Tenderloin')
+      expect(op!.ownerId).toBe(0)
+      expect(op!.houseCount).toBe(2)
+      expect(op!.isMortgaged).toBe(false)
+    })
+
+    it('should return mortgaged true when in mortgaged map', () => {
+      const owners: Record<number, number> = { 5: 1 }
+      const houses: Record<number, number> = {}
+      const mortgaged: Record<number, boolean> = { 5: true }
+      const op = getOwnedProperty(5, owners, houses, mortgaged)
+      expect(op).not.toBeNull()
+      expect(op!.isMortgaged).toBe(true)
+      expect(op!.houseCount).toBe(0)
+    })
+
+    it('should return null for non-purchasable space id even if in owners map', () => {
+      const owners: Record<number, number> = { 0: 0 }
+      const houses: Record<number, number> = {}
+      const mortgaged: Record<number, boolean> = {}
+      expect(getOwnedProperty(0, owners, houses, mortgaged)).toBeNull()
+    })
+  })
+
+  describe('getOwnedProperties', () => {
+    it('should return empty array when no properties owned', () => {
+      const list = getOwnedProperties({}, {}, {})
+      expect(list).toEqual([])
+    })
+
+    it('should return one OwnedProperty per owned space', () => {
+      const owners: Record<number, number> = { 1: 0, 3: 0, 5: 1 }
+      const houses: Record<number, number> = { 1: 0, 3: 1 }
+      const mortgaged: Record<number, boolean> = { 5: true }
+      const list = getOwnedProperties(owners, houses, mortgaged)
+      expect(list).toHaveLength(3)
+      const ids = list.map(op => op.property.id).sort((a, b) => a - b)
+      expect(ids).toEqual([1, 3, 5])
+    })
+  })
+
+  describe('OwnedProperty immutability', () => {
+    it('should allow Property to be used with calculateRent', () => {
+      const prop = getPropertyById(1)!
+      const rent = calculateRent(prop, 0, false)
+      expect(rent).toBe(prop.rent[0])
+    })
   })
 })
 
