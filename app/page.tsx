@@ -12,15 +12,15 @@ import { TradeModal, type TradePayload } from "@/components/trade-modal"
 import {
   Player,
   Space,
-  GameCard,
   BOARD_SPACES,
   createPlayer,
-  rollDice,
   drawChanceCard,
   drawCommunityChestCard,
   calculateRent,
   getSpacesByColorGroup,
 } from "@/lib/game-data"
+import { useGameStore } from "@/components/game-store-context"
+import { type GameState, getRandomInitialDice } from "@/lib/game-store"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
@@ -40,66 +40,22 @@ const {
   LOG_HISTORY_SIZE,
 } = GAME_CONSTANTS
 
-// Generate random initial dice values (for display only)
-function getRandomInitialDice(): [number, number] {
-  return [
-    Math.floor(Math.random() * 6) + 1,
-    Math.floor(Math.random() * 6) + 1,
-  ]
-}
-
 function calculateUnmortgageCost(mortgageValue: number): number {
   return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
 }
 
-interface GameState {
-  players: Player[]
-  currentPlayerIndex: number
-  propertyOwners: Record<number, number>
-  mortgagedProperties: Record<number, boolean>
-  propertyHouses: Record<number, number>
-  diceValues: [number, number]
-  hasRolled: boolean
-  rolling: boolean
-  consecutiveDoubles: number
-  selectedSpace: Space | null
-  specialSpace: Space | null
-  drawnCard: GameCard | null
-  gameLog: string[]
-  awaitingPropertyDecision: boolean
-  awaitingSpecialSpace: boolean
-  isOwnProperty: boolean
-  rentPaid: number | undefined
-  viewingPropertiesForPlayer: Player | null
-  gameOver: boolean
-  winnerId: number | null
-}
-
 export default function MonopolyGame() {
+  const store = useGameStore()
+  const gameState = store.getState()
+  const setGameState = useCallback(
+    (updater: (prev: GameState) => GameState) => {
+      store.setState(updater)
+    },
+    [store]
+  )
+
   const [showSplash, setShowSplash] = useState(true)
   const [gameStarted, setGameStarted] = useState(false)
-  const [gameState, setGameState] = useState<GameState>({
-    players: [],
-    currentPlayerIndex: 0,
-    propertyOwners: {},
-    mortgagedProperties: {},
-    propertyHouses: {},
-    diceValues: getRandomInitialDice(),
-    hasRolled: false,
-    rolling: false,
-    consecutiveDoubles: 0,
-    selectedSpace: null,
-    specialSpace: null,
-    drawnCard: null,
-    gameLog: [],
-    awaitingPropertyDecision: false,
-    awaitingSpecialSpace: false,
-    isOwnProperty: false,
-    rentPaid: undefined,
-    viewingPropertiesForPlayer: null,
-    gameOver: false,
-    winnerId: null,
-  })
   const [isTradeOpen, setIsTradeOpen] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -334,7 +290,7 @@ export default function MonopolyGame() {
 
     // Simulate rolling animation
     setTimeout(() => {
-      const dice = rollDice()
+      const dice = store.getDiceRoller()()
       const total = dice[0] + dice[1]
       const isDoubles = dice[0] === dice[1]
       const currentPlayer = gameState.players[gameState.currentPlayerIndex]
@@ -1348,12 +1304,12 @@ export default function MonopolyGame() {
           onClose={handleCloseCard}
           onBuy={handleBuyProperty}
           onPass={handlePassProperty}
-          canBuy={canBuySelectedSpace}
+          canBuy={!!canBuySelectedSpace}
           onMortgage={handleMortgageProperty}
           onUnmortgage={handleUnmortgageProperty}
-          canMortgage={canMortgageSelectedSpace}
-          canUnmortgage={canUnmortgageSelectedSpace}
-          canAffordUnmortgage={canAffordUnmortgage}
+          canMortgage={!!canMortgageSelectedSpace}
+          canUnmortgage={!!canUnmortgageSelectedSpace}
+          canAffordUnmortgage={!!canAffordUnmortgage}
           isMortgaged={selectedSpaceIsMortgaged}
           unmortgageCost={selectedSpaceUnmortgageCost}
           isOwnProperty={gameState.isOwnProperty}
