@@ -60,6 +60,11 @@ export default function MonopolyGame() {
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
+    if (typeof window !== "undefined" && window.__DETERMINISTIC_GAME_CONFIG__) {
+      setGameStarted(true)
+      return
+    }
+
     const players = playerSetups.map((setup, i) =>
       createPlayer(i, setup.name, setup.tokenIndex)
     )

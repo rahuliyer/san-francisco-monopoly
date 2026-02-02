@@ -7,6 +7,7 @@ import {
   type IGameStore,
 } from "@/lib/game-store"
 import { GameLoop } from "@/lib/game-loop"
+import { createDeterministicGame, type DeterministicGameConfig } from "@/lib/state/test-utils"
 
 interface GameStoreContextValue {
   store: IGameStore
@@ -20,6 +21,7 @@ const GameStoreContext = createContext<GameStoreContextValue | null>(null)
 declare global {
   interface Window {
     __GAME_LOOP__?: GameLoop
+    __DETERMINISTIC_GAME_CONFIG__?: DeterministicGameConfig
   }
 }
 
@@ -38,8 +40,16 @@ export function GameStoreProvider({ children }: { children: React.ReactNode }) {
     setTick((t) => t + 1)
   }, [])
 
-  if (typeof window !== "undefined" && window.__GAME_STORE__ && !storeRef.current) {
-    storeRef.current = window.__GAME_STORE__
+  if (typeof window !== "undefined" && !storeRef.current) {
+    if (window.__GAME_STORE__) {
+      storeRef.current = window.__GAME_STORE__
+    } else if (window.__DETERMINISTIC_GAME_CONFIG__) {
+      const { state, diceRoller } = createDeterministicGame(window.__DETERMINISTIC_GAME_CONFIG__)
+      storeRef.current = createGameStore(state, {
+        onUpdate: scheduleUpdate,
+        diceRoller: () => diceRoller.roll(),
+      })
+    }
   }
 
   if (!storeRef.current) {

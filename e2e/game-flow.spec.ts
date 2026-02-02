@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import type { DeterministicGameConfig } from '../lib/state/test-utils';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -8,6 +9,21 @@ async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
   await page.addInitScript((sequence) => {
     (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }).__TEST_DICE_ROLLS__ = sequence;
   }, rolls);
+}
+
+async function injectDeterministicGame(page: Page, config: DeterministicGameConfig) {
+  await page.addInitScript((config) => {
+    (window as Window & { __DETERMINISTIC_GAME_CONFIG__?: DeterministicGameConfig })
+      .__DETERMINISTIC_GAME_CONFIG__ = config;
+  }, config);
+}
+
+async function startGameWithConfig(page: Page, config: DeterministicGameConfig) {
+  await injectDeterministicGame(page, config);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play Now' }).click();
+  await page.getByRole('button', { name: 'START GAME' }).click();
+  await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 }
 
 async function rollAndClose(page: Page) {
@@ -399,45 +415,20 @@ test.describe('Property Rent Payment', () => {
     await closeAnyModal(page);
   });
 
-  // FIXME: Flaky test - the dice sequence often fails to land on the owned property
-  // This test was failing before the architecture refactor and needs investigation
-  test.skip('should show own property notification when landing on your own property', async ({ page }) => {
-    await setDiceRolls(page, [
-      [2, 3], // Player 1 -> Caltrain
-      [3, 3], // Player 2
-      [4, 6], // Player 1 -> BART
-      [3, 3], // Player 2
-      [4, 6], // Player 1 -> Muni
-      [3, 3], // Player 2
-      [4, 6], // Player 1 -> Cable Car
-      [3, 3], // Player 2
-      [4, 6], // Player 1 -> back to Caltrain
-    ]);
+  test('should show own property notification when landing on your own property', async ({ page }) => {
+    const deterministicConfig: DeterministicGameConfig = {
+      players: [
+        { name: 'Player 1', tokenIndex: 0, initialPosition: 1 },
+        { name: 'Player 2', tokenIndex: 1, initialPosition: 0 },
+      ],
+      initialProperties: [{ propertyId: 3, ownerId: 0 }],
+      diceSequence: [[1, 1]],
+    };
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'START GAME' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+    await startGameWithConfig(page, deterministicConfig);
 
-    const firstRoll = await waitForRollButton(page);
-    await firstRoll.click();
-    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-    await expect(buyButton).toBeVisible({ timeout: 3000 });
-    await buyButton.click();
-    await expect(page.getByRole('button', { name: /Buy for \$/ })).not.toBeVisible({ timeout: 3000 });
-
-    await rollAndClose(page); // Player 2
-    await rollAndClose(page); // Player 1
-    await rollAndClose(page); // Player 2
-    await rollAndClose(page); // Player 1
-    await rollAndClose(page); // Player 2
-    await rollAndClose(page); // Player 1
-    await rollAndClose(page); // Player 2
-
-    const finalRoll = await waitForRollButton(page);
-    await finalRoll.click();
+    const roll = await waitForRollButton(page);
+    await roll.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
     await page.waitForTimeout(1500);
     await expect(page.getByText('You own this property!')).toBeVisible({ timeout: 5000 });
