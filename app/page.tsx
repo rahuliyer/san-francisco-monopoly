@@ -102,7 +102,7 @@ export default function MonopolyGame() {
         currentPlayerIndex: nextPlayerIndex,
         hasRolled: false,
         consecutiveDoubles: 0,
-        diceValues: getRandomInitialDice(),
+        diceValues: prev.diceValues,
         awaitingPropertyDecision: false,
         awaitingSpecialSpace: false,
         specialSpace: null,
