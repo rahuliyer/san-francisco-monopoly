@@ -18,6 +18,7 @@ import {
   drawCommunityChestCard,
   calculateRent,
   getSpacesByColorGroup,
+  type GameCard,
 } from "@/lib/game-data"
 import { useGameStore } from "@/components/game-store-context"
 import { type GameState, getRandomInitialDice } from "@/lib/game-store"
@@ -518,6 +519,14 @@ export default function MonopolyGame() {
         landedSpace.type === "go-to-jail" || 
         landedSpace.type === "tax"
 
+      const pendingMoneyAdjustments: Record<number, number> = {}
+      let pendingCard: GameCard | null = null
+
+      const queueMoneyAdjustment = (playerIndex: number, amount: number) => {
+        pendingMoneyAdjustments[playerIndex] =
+          (pendingMoneyAdjustments[playerIndex] ?? 0) + amount
+      }
+
       // Calculate rent and update player state, but don't show dialog yet
       let calculatedRentAmount: number | undefined = undefined
       let calculatedIsOwnProperty = false
@@ -533,9 +542,10 @@ export default function MonopolyGame() {
         updatedPlayers[prev.currentPlayerIndex] = {
           ...updatedPlayers[prev.currentPlayerIndex],
           position: newPosition,
-          money: passedGo
-            ? updatedPlayers[prev.currentPlayerIndex].money + GO_BONUS
-            : updatedPlayers[prev.currentPlayerIndex].money,
+        }
+
+        if (passedGo) {
+          queueMoneyAdjustment(prev.currentPlayerIndex, GO_BONUS)
         }
 
         // Handle Go To Jail
@@ -578,8 +588,8 @@ export default function MonopolyGame() {
 
           // Transfer rent from current player to owner
           if (rentAmount !== undefined) {
-            updatedPlayers[prev.currentPlayerIndex].money -= rentAmount
-            updatedPlayers[ownerId].money += rentAmount
+            queueMoneyAdjustment(prev.currentPlayerIndex, -rentAmount)
+            queueMoneyAdjustment(ownerId, rentAmount)
           }
         }
 
@@ -603,6 +613,8 @@ export default function MonopolyGame() {
           rentPaid: rentAmount,
         }
       })
+
+      const dialogDelay = DICE_ANIMATION_DURATION + CARD_SHOW_DELAY
 
       // Delay showing dialogs until after dice animation completes
       setTimeout(() => {
@@ -633,9 +645,52 @@ export default function MonopolyGame() {
             // Show special space modal for non-purchasable special spaces
             specialSpace: isSpecialSpace ? landedSpace : null,
             awaitingSpecialSpace: isSpecialSpace,
+            drawnCard: pendingCard ?? prev.drawnCard,
           }
         })
-      }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY)
+
+        if (Object.keys(pendingMoneyAdjustments).length > 0 || pendingCard) {
+          setTimeout(() => {
+            setGameState((prev) => {
+              let updatedPlayers = prev.players.map((player) => ({ ...player }))
+
+              Object.entries(pendingMoneyAdjustments).forEach(([index, amount]) => {
+                const playerIndex = Number(index)
+                updatedPlayers[playerIndex] = {
+                  ...updatedPlayers[playerIndex],
+                  money: updatedPlayers[playerIndex].money + amount,
+                }
+              })
+
+              if (pendingCard) {
+                const { updatedPlayers: cardPlayers, repairsSummary } = applyCardEffect(
+                  pendingCard,
+                  updatedPlayers,
+                  prev.currentPlayerIndex,
+                  prev.propertyOwners,
+                  prev.propertyHouses
+                )
+
+                updatedPlayers = cardPlayers
+
+                if (repairsSummary) {
+                  const details = formatRepairsSummary(repairsSummary)
+                  setTimeout(
+                    () => addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`),
+                    0
+                  )
+                }
+              }
+
+              return {
+                ...prev,
+                players: updatedPlayers,
+                drawnCard: pendingCard ?? prev.drawnCard,
+              }
+            })
+          }, 0)
+        }
+      }, dialogDelay)
 
       // Log the roll
       let logMessage = `${currentPlayer.name} rolled ${dice[0]} + ${dice[1]} = ${total}`
@@ -661,32 +716,12 @@ export default function MonopolyGame() {
         addLog(`${currentPlayer.name} was sent to Alcatraz!`)
       } else if (landedSpace.type === "tax") {
         const taxAmount = landedSpace.name === "Income Tax" ? INCOME_TAX : LUXURY_TAX
-        setGameState((prev) => {
-          const updatedPlayers = [...prev.players]
-          updatedPlayers[prev.currentPlayerIndex].money -= taxAmount
-          return { ...prev, players: updatedPlayers }
-        })
+        queueMoneyAdjustment(gameState.currentPlayerIndex, -taxAmount)
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
       } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
         const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
+        pendingCard = card
         addLog(`Drew: ${card.text}`)
-
-        setGameState((prev) => {
-          const { updatedPlayers, repairsSummary } = applyCardEffect(
-            card,
-            prev.players,
-            prev.currentPlayerIndex,
-            prev.propertyOwners,
-            prev.propertyHouses
-          )
-
-          if (repairsSummary) {
-            const details = formatRepairsSummary(repairsSummary)
-            setTimeout(() => addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`), 0)
-          }
-
-          return { ...prev, players: updatedPlayers, drawnCard: card }
-        })
       }
 
       // Check if we need to wait for modal interaction or auto-complete action
@@ -704,7 +739,7 @@ export default function MonopolyGame() {
             return prev
           }
         })
-      }, DICE_ANIMATION_DURATION + CARD_SHOW_DELAY + 50) // Slightly after dialog appears
+      }, dialogDelay + 50) // Slightly after dialog appears
     }, 800)
   }, [gameState.players, gameState.currentPlayerIndex, gameState.consecutiveDoubles, gameState.gameOver, addLog, handleEndTurn, handleActionComplete])
 
