@@ -5,9 +5,13 @@ test('shows victory modal when a winner is set', async ({ page }) => {
   await page.getByRole('button', { name: 'Play Now' }).click()
   await page.getByRole('button', { name: /start game/i }).click()
 
-  await page.waitForFunction(() => {
-    return window.__GAME_LOOP__?.getState().players.length
+  await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({
+    timeout: 20000,
   })
+
+  await page.waitForFunction(() => {
+    return window.__GAME_LOOP__ && window.__GAME_LOOP__.getState().players.length > 0
+  }, null, { timeout: 20000 })
 
   await page.evaluate(() => {
     const loop = window.__GAME_LOOP__
