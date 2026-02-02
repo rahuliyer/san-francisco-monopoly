@@ -12,10 +12,10 @@ interface GameBoardProps {
 
 export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouses }: GameBoardProps) {
   // Split board into sections
-  const bottomRow = BOARD_SPACES.slice(0, 11).reverse() // GO to Jail (right to left)
+  const bottomRow = BOARD_SPACES.slice(0, 11) // GO to Jail (right to left)
   const leftColumn = BOARD_SPACES.slice(11, 20) // Dogpatch to Noe Valley (bottom to top)
   const topRow = BOARD_SPACES.slice(20, 31) // Free Parking to Go To Jail (left to right)
-  const rightColumn = BOARD_SPACES.slice(31, 40).reverse() // Sea Cliff to Russian Hill (top to bottom)
+  const rightColumn = BOARD_SPACES.slice(31, 40) // Russian Hill to Sea Cliff (top to bottom)
 
   const getOwnerColor = (spaceId: number) => {
     const ownerId = propertyOwners[spaceId]
