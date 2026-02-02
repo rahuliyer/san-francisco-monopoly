@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 
 interface DiceProps {
@@ -82,6 +82,8 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
   const [rotation, setRotation] = useState({ x: 0, y: 0, z: 0 })
   const [isRolling, setIsRolling] = useState(false)
   const [rollId, setRollId] = useState(0)
+  // Track if we're in the settling phase to prevent flicker from effect re-runs
+  const isTransitioningRef = useRef(false)
 
   // Calculate target rotation for a given value
   const getTargetRotation = useCallback((targetValue: number, addSpins: boolean = false) => {
@@ -101,11 +103,13 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
 
   useEffect(() => {
     if (rolling) {
+      // Reset transitioning flag when starting a new roll
+      isTransitioningRef.current = false
       // Start rolling animation after delay
       const delayTimer = setTimeout(() => {
         setIsRolling(true)
         setRollId(prev => prev + 1)
-        
+
         // Set a random tumbling rotation
         setRotation({
           x: Math.random() * 720 + 360,
@@ -118,20 +122,27 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
     } else {
       // Stop rolling - animate to final position
       if (isRolling) {
+        // Mark that we're transitioning to prevent flicker from effect re-runs
+        isTransitioningRef.current = true
         setIsRolling(false)
         // Smoothly transition to the face showing the correct value
         const target = getTargetRotation(value, true)
         setRotation(target)
-        
+
         // After animation completes, reset to base rotation
         const resetTimer = setTimeout(() => {
           setRotation(getTargetRotation(value, false))
+          isTransitioningRef.current = false
         }, 800)
-        
+
         return () => clearTimeout(resetTimer)
-      } else {
+      } else if (!isTransitioningRef.current) {
         // Initial mount or direct value change without rolling
+        // Skip if we're transitioning (effect re-ran due to isRolling state change)
         setRotation(getTargetRotation(value, false))
+      } else {
+        // Clear the transitioning flag after skipping one cycle
+        isTransitioningRef.current = false
       }
     }
   }, [rolling, value, delay, isRolling, getTargetRotation])
