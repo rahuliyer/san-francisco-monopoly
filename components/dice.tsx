@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { cn } from "@/lib/utils"
 
 interface DiceProps {
@@ -82,22 +82,19 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
   const [rotation, setRotation] = useState({ x: 0, y: 0, z: 0 })
   const [isRolling, setIsRolling] = useState(false)
   const [rollId, setRollId] = useState(0)
-  // Track if we're in the settling phase to prevent flicker from effect re-runs
-  const isTransitioningRef = useRef(false)
-  // Store reset timer in ref so it persists across effect re-runs
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Calculate target rotation for a given value
   const getTargetRotation = useCallback((targetValue: number, addSpins: boolean = false) => {
     const base = faceRotations[targetValue]
     if (addSpins) {
       // Add multiple full rotations for dramatic effect
+      // Keep z at 0 so dice settles flat (no tilting)
       const spinsX = (2 + Math.floor(Math.random() * 2)) * 360
       const spinsY = (2 + Math.floor(Math.random() * 2)) * 360
       return {
         x: base.x + spinsX,
         y: base.y + spinsY,
-        z: Math.random() * 360,
+        z: 0,
       }
     }
     return { x: base.x, y: base.y, z: 0 }
@@ -105,13 +102,6 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
 
   useEffect(() => {
     if (rolling) {
-      // Clear any pending reset timer when starting a new roll
-      if (resetTimerRef.current) {
-        clearTimeout(resetTimerRef.current)
-        resetTimerRef.current = null
-      }
-      // Reset transitioning flag when starting a new roll
-      isTransitioningRef.current = false
       // Start rolling animation after delay
       const delayTimer = setTimeout(() => {
         setIsRolling(true)
@@ -126,43 +116,17 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
       }, delay)
 
       return () => clearTimeout(delayTimer)
-    } else {
+    } else if (isRolling) {
       // Stop rolling - animate to final position
-      if (isRolling) {
-        // Mark that we're transitioning to prevent flicker from effect re-runs
-        isTransitioningRef.current = true
-        setIsRolling(false)
-        // Smoothly transition to the face showing the correct value
-        const target = getTargetRotation(value, true)
-        setRotation(target)
-
-        // After animation completes, reset to base rotation
-        // Use ref so timer persists across effect re-runs when isRolling changes
-        resetTimerRef.current = setTimeout(() => {
-          setRotation(getTargetRotation(value, false))
-          isTransitioningRef.current = false
-          resetTimerRef.current = null
-        }, 800)
-        // Don't return cleanup - timer is managed via ref
-      } else if (!isTransitioningRef.current) {
-        // Initial mount or direct value change without rolling
-        // Skip if we're transitioning (effect re-ran due to isRolling state change)
-        setRotation(getTargetRotation(value, false))
-      } else {
-        // Clear the transitioning flag after skipping one cycle
-        isTransitioningRef.current = false
-      }
+      setIsRolling(false)
+      // Smoothly transition to the face showing the correct value
+      // The extra spins are visually equivalent to base rotation, so no reset needed
+      setRotation(getTargetRotation(value, true))
+    } else {
+      // Initial mount or value change without rolling
+      setRotation(getTargetRotation(value, false))
     }
   }, [rolling, value, delay, isRolling, getTargetRotation])
-
-  // Cleanup reset timer on unmount
-  useEffect(() => {
-    return () => {
-      if (resetTimerRef.current) {
-        clearTimeout(resetTimerRef.current)
-      }
-    }
-  }, [])
 
   // Continuous tumbling while rolling
   useEffect(() => {
