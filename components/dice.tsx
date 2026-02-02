@@ -84,6 +84,8 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
   const [rollId, setRollId] = useState(0)
   // Track if we're in the settling phase to prevent flicker from effect re-runs
   const isTransitioningRef = useRef(false)
+  // Store reset timer in ref so it persists across effect re-runs
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Calculate target rotation for a given value
   const getTargetRotation = useCallback((targetValue: number, addSpins: boolean = false) => {
@@ -103,6 +105,11 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
 
   useEffect(() => {
     if (rolling) {
+      // Clear any pending reset timer when starting a new roll
+      if (resetTimerRef.current) {
+        clearTimeout(resetTimerRef.current)
+        resetTimerRef.current = null
+      }
       // Reset transitioning flag when starting a new roll
       isTransitioningRef.current = false
       // Start rolling animation after delay
@@ -130,12 +137,13 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
         setRotation(target)
 
         // After animation completes, reset to base rotation
-        const resetTimer = setTimeout(() => {
+        // Use ref so timer persists across effect re-runs when isRolling changes
+        resetTimerRef.current = setTimeout(() => {
           setRotation(getTargetRotation(value, false))
           isTransitioningRef.current = false
+          resetTimerRef.current = null
         }, 800)
-
-        return () => clearTimeout(resetTimer)
+        // Don't return cleanup - timer is managed via ref
       } else if (!isTransitioningRef.current) {
         // Initial mount or direct value change without rolling
         // Skip if we're transitioning (effect re-ran due to isRolling state change)
@@ -146,6 +154,15 @@ function Die3D({ value, rolling, delay = 0 }: { value: number; rolling?: boolean
       }
     }
   }, [rolling, value, delay, isRolling, getTargetRotation])
+
+  // Cleanup reset timer on unmount
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) {
+        clearTimeout(resetTimerRef.current)
+      }
+    }
+  }, [])
 
   // Continuous tumbling while rolling
   useEffect(() => {
