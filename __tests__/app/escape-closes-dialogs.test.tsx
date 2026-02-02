@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { GameStoreProvider } from '@/components/game-store-context'
 import MonopolyGame from '@/app/page'
 
 // Mock next/image
@@ -11,13 +12,21 @@ jest.mock('next/image', () => ({
   },
 }))
 
+function renderGame() {
+  return render(
+    <GameStoreProvider>
+      <MonopolyGame />
+    </GameStoreProvider>
+  )
+}
+
 describe('Escape key closes dialogs', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
   const startGame = async () => {
-    render(<MonopolyGame />)
+    renderGame()
 
     // Click "Play Now" to dismiss the splash screen
     const playNowButton = screen.getByRole('button', { name: /play now/i })

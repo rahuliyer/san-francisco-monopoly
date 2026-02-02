@@ -1,5 +1,6 @@
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { GameStoreProvider } from '@/components/game-store-context'
 import MonopolyGame from '@/app/page'
 
 // Mock next/image
@@ -10,6 +11,14 @@ jest.mock('next/image', () => ({
     return <img {...props} data-fill={fill ? 'true' : undefined} />
   },
 }))
+
+function renderGame() {
+  return render(
+    <GameStoreProvider>
+      <MonopolyGame />
+    </GameStoreProvider>
+  )
+}
 
 // Helper to set up dice rolls for tests
 function setTestDiceRolls(rolls: [number, number][]) {
@@ -34,7 +43,7 @@ describe('Doubles rule', () => {
 
   const startGame = async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
-    render(<MonopolyGame />)
+    renderGame()
 
     // Click "Play Now" to dismiss the splash screen
     const playNowButton = screen.getByRole('button', { name: /play now/i })
