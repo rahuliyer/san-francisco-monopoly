@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import type { DeterministicGameConfig } from '../lib/state/test-utils';
 
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
@@ -52,15 +53,35 @@ async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
   }, rolls);
 }
 
+async function injectDeterministicGame(page: Page, config: DeterministicGameConfig) {
+  await page.addInitScript((config) => {
+    (window as Window & { __DETERMINISTIC_GAME_CONFIG__?: DeterministicGameConfig })
+      .__DETERMINISTIC_GAME_CONFIG__ = config;
+  }, config);
+}
+
+async function startGame(page: Page, config?: DeterministicGameConfig) {
+  if (config) {
+    await injectDeterministicGame(page, config);
+  }
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play Now' }).click();
+  await page.getByRole('button', { name: 'START GAME' }).click();
+  await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+}
+
 test.describe('Property Purchase', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'START GAME' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
+  const deterministicBuyConfig: DeterministicGameConfig = {
+    players: [
+      { name: 'Player 1', tokenIndex: 0 },
+      { name: 'Player 2', tokenIndex: 1 },
+    ],
+    diceSequence: [[1, 2]],
+  };
 
   test('should show property card with buy options when landing on unowned property', async ({ page }) => {
+    await startGame(page);
+
     // Roll dice
     const rollBtn = await waitForRollButton(page);
     await rollBtn.click();
@@ -84,6 +105,8 @@ test.describe('Property Purchase', () => {
   });
 
   test('should allow buying a property', async ({ page }) => {
+    await startGame(page);
+
     // Roll dice and keep trying until we land on a property we can buy
     let boughtProperty = false;
     let attempts = 0;
@@ -117,6 +140,8 @@ test.describe('Property Purchase', () => {
   });
 
   test('should allow passing on a property', async ({ page }) => {
+    await startGame(page);
+
     // Roll dice and keep trying until we land on a property
     let foundProperty = false;
     let attempts = 0;
@@ -149,6 +174,8 @@ test.describe('Property Purchase', () => {
   });
 
   test('should show property price in buy button', async ({ page }) => {
+    await startGame(page);
+
     // Roll dice and keep trying until we land on a property
     let attempts = 0;
     const maxAttempts = 10;
@@ -174,102 +201,50 @@ test.describe('Property Purchase', () => {
     }
   });
 
-  // Disabled: This test can exceed 1 minute due to 15 random dice roll attempts
-  test.skip('should decrease player money after buying property', async ({ page }) => {
-    // Get initial money
-    const initialMoney = await page.getByText('$1,500').first().textContent();
-    expect(initialMoney).toBe('$1,500');
+  test('should decrease player money after buying property', async ({ page }) => {
+    await startGame(page, deterministicBuyConfig);
 
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 15;
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await expect(buyButton).not.toBeVisible({ timeout: 3000 });
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-
-      try {
-        await expect(buyButton).toBeVisible({ timeout: 3000 });
-        await buyButton.click();
-        boughtProperty = true;
-      } catch {
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
-
-    if (boughtProperty) {
-      // Wait for modal to close
-      await expect(page.getByRole('button', { name: /Buy for \$/ })).not.toBeVisible({ timeout: 3000 });
-
-      // Money should be less than $1,500 now
-      // Check that at least one player has less than $1,500
-      const moneyTexts = await page.getByText(/\$\d+,?\d*/).allTextContents();
-      const hasReducedMoney = moneyTexts.some(text => {
-        const match = text.match(/\$(\d+,?\d*)/);
-        if (match) {
-          const value = parseInt(match[1].replace(',', ''), 10);
-          return value < 1500 && value > 0;
-        }
-        return false;
-      });
-      // We should have at least one player with reduced money if purchase was successful
-      // Note: This test may be flaky depending on game flow
-    }
+    await expect(page.getByText('$1,440')).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('Property Ownership Display', () => {
-  // Disabled: This test can exceed 1 minute due to 15 random dice roll attempts
-  test.skip('should show owned property in player panel after purchase', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'START GAME' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+  const deterministicBuyConfig: DeterministicGameConfig = {
+    players: [
+      { name: 'Player 1', tokenIndex: 0 },
+      { name: 'Player 2', tokenIndex: 1 },
+    ],
+    diceSequence: [[1, 2]],
+  };
 
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 15;
+  test('should show owned property in player panel after purchase', async ({ page }) => {
+    await startGame(page, deterministicBuyConfig);
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await expect(buyButton).not.toBeVisible({ timeout: 3000 });
 
-      try {
-        await expect(buyButton).toBeVisible({ timeout: 3000 });
-        await buyButton.click();
-        boughtProperty = true;
-      } catch {
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
-
-    if (boughtProperty) {
-      // Wait a bit for the UI to update
-      await page.waitForTimeout(1500);
-
-      // Check that Properties section appears in player panel
-      const propertiesSection = page.getByText(/Properties \(\d+\)/);
-      await expect(propertiesSection.first()).toBeVisible({ timeout: 5000 });
-    }
+    const propertiesSection = page.getByText(/Properties \(\d+\)/);
+    await expect(propertiesSection.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should show owner indicator on property space on board', async ({ page }) => {
     await setDiceRolls(page, [[1, 2]]);
-
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'START GAME' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+    await startGame(page);
 
     const rollBtn = await waitForRollButton(page);
     await rollBtn.click();
@@ -291,14 +266,9 @@ test.describe('Property Ownership Display', () => {
 });
 
 test.describe('Property Card Modal', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Play Now' }).click();
-    await page.getByRole('button', { name: 'START GAME' }).click();
-    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
-
   test('should display property card with all rent tiers for properties', async ({ page }) => {
+    await startGame(page);
+
     // Click on a specific property to view its card
     await page.getByText('Sea Cliff').click();
 
@@ -316,6 +286,8 @@ test.describe('Property Card Modal', () => {
   });
 
   test('should display railroad rent information', async ({ page }) => {
+    await startGame(page);
+
     await page.getByText('BART').click();
 
     await expect(page.getByText('Title Deed')).toBeVisible();
@@ -329,6 +301,8 @@ test.describe('Property Card Modal', () => {
   });
 
   test('should display utility rent information', async ({ page }) => {
+    await startGame(page);
+
     await page.getByText('SF Water').click();
 
     await expect(page.getByText('Title Deed')).toBeVisible();
@@ -338,6 +312,8 @@ test.describe('Property Card Modal', () => {
   });
 
   test('should show house cost and mortgage value', async ({ page }) => {
+    await startGame(page);
+
     await page.getByText('Pacific Heights').click();
 
     await expect(page.getByText('House Cost')).toBeVisible();
