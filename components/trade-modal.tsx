@@ -239,7 +239,7 @@ export function TradeModal({
           <section className="rounded-lg border border-[#d4af37]/30 p-4 bg-[#faf6ee]">
             <div className="mb-3 flex items-center gap-2">
               <PlayerToken3D
-                icon={currentPlayer.token}
+                sprite={currentPlayer.token}
                 color={currentPlayer.color}
                 name={currentPlayer.name}
                 size="sm"
@@ -289,7 +289,7 @@ export function TradeModal({
               {partner ? (
                 <>
                   <PlayerToken3D
-                    icon={partner.token}
+                    sprite={partner.token}
                     color={partner.color}
                     name={partner.name}
                     size="sm"

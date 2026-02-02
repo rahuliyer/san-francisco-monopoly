@@ -5,9 +5,9 @@ import { BOARD_SPACES, Player, Space } from '@/lib/game-data'
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ fill, ...props }: { alt: string; src: string; fill?: boolean }) => {
+  default: ({ fill, priority, ...props }: { alt: string; src: string; fill?: boolean; priority?: boolean; width?: number; height?: number }) => {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} data-fill={fill ? 'true' : undefined} />
+    return <img {...props} data-fill={fill ? 'true' : undefined} data-priority={priority ? 'true' : undefined} />
   },
 }))
 
@@ -25,7 +25,7 @@ describe('PropertyCard component', () => {
     id: 0,
     name: 'Alice',
     color: '#C4451A',
-    token: '🚃',
+    token: '/images/tokens/crab.png',
     money: 1500,
     position: 0,
     properties: [],
@@ -387,9 +387,10 @@ describe('PropertyCard component', () => {
           onClose={mockOnClose}
         />
       )
-      
+
       expect(screen.getByText('Owned by Alice')).toBeInTheDocument()
-      expect(screen.getByText('🚃')).toBeInTheDocument()
+      // Token is now an image with alt text
+      expect(screen.getByAltText('Alice')).toBeInTheDocument()
     })
 
     it('should not show owner info when property is not owned', () => {

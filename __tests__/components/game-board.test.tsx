@@ -5,9 +5,9 @@ import { Player, BOARD_SPACES } from '@/lib/game-data'
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ fill, ...props }: { alt: string; src: string; fill?: boolean }) => {
+  default: ({ fill, priority, ...props }: { alt: string; src: string; fill?: boolean; priority?: boolean; width?: number; height?: number }) => {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} data-fill={fill ? 'true' : undefined} />
+    return <img {...props} data-fill={fill ? 'true' : undefined} data-priority={priority ? 'true' : undefined} />
   },
 }))
 
@@ -18,8 +18,8 @@ describe('GameBoard component', () => {
     return Array.from({ length: count }, (_, i) => ({
       id: i,
       name: `Player ${i + 1}`,
-      color: ['#C4451A', '#2563EB', '#16A34A', '#9333EA'][i],
-      token: ['🚃', '🦀', '🏠', '🌉'][i],
+      color: ['#B8860B', '#E07020', '#C4451A', '#C9A227'][i],
+      token: ['/images/tokens/crab.png', '/images/tokens/golden-gate.png', '/images/tokens/cable-car.png', '/images/tokens/sea-lion.png'][i],
       money: 1500,
       position: i * 10, // Place players at different positions
       properties: [],
@@ -64,16 +64,17 @@ describe('GameBoard component', () => {
 
   it('should display player tokens on the board', () => {
     const players = createMockPlayers(2)
-    
+
     render(
       <GameBoard
         players={players}
         propertyOwners={{}}
       />
     )
-    
-    expect(screen.getByText('🚃')).toBeInTheDocument()
-    expect(screen.getByText('🦀')).toBeInTheDocument()
+
+    // Tokens are now images with player name as alt text
+    expect(screen.getByAltText('Player 1')).toBeInTheDocument()
+    expect(screen.getByAltText('Player 2')).toBeInTheDocument()
   })
 
   it('should call onSpaceClick when a space is clicked', () => {
@@ -179,16 +180,16 @@ describe('GameBoard component', () => {
       createMockPlayers(2)[0],
       { ...createMockPlayers(2)[1], position: 0 }, // Both at GO
     ]
-    
+
     render(
       <GameBoard
         players={players}
         propertyOwners={{}}
       />
     )
-    
-    // Both tokens should be visible
-    expect(screen.getByText('🚃')).toBeInTheDocument()
-    expect(screen.getByText('🦀')).toBeInTheDocument()
+
+    // Both tokens should be visible (now rendered as images with player name as alt text)
+    expect(screen.getByAltText('Player 1')).toBeInTheDocument()
+    expect(screen.getByAltText('Player 2')).toBeInTheDocument()
   })
 })

@@ -8,16 +8,16 @@ const { STARTING_MONEY, JAIL_POSITION } = GAME_CONSTANTS
 /** Player token configuration */
 export interface PlayerToken {
   name: string
-  icon: string
+  sprite: string
   color: string
 }
 
 /** Available player tokens */
 export const PLAYER_TOKENS: readonly PlayerToken[] = [
-  { name: "Cable Car", icon: "🚃", color: "#C4451A" },
-  { name: "Crab", icon: "🦀", color: "#2563EB" },
-  { name: "Victorian House", icon: "🏠", color: "#16A34A" },
-  { name: "Golden Gate", icon: "🌉", color: "#9333EA" },
+  { name: "Crab", sprite: "/images/tokens/crab.png", color: "#B8860B" },
+  { name: "Golden Gate", sprite: "/images/tokens/golden-gate.png", color: "#E07020" },
+  { name: "Cable Car", sprite: "/images/tokens/cable-car.png", color: "#C4451A" },
+  { name: "Sea Lion", sprite: "/images/tokens/sea-lion.png", color: "#C9A227" },
 ] as const
 
 /** Immutable player state */
@@ -25,7 +25,7 @@ export interface Player {
   readonly id: number
   readonly name: string
   readonly color: string
-  readonly token: string
+  readonly token: string // sprite path
   readonly money: number
   readonly position: number
   readonly properties: readonly number[]
@@ -55,7 +55,7 @@ export function createPlayer(
     id,
     name,
     color: token.color,
-    token: token.icon,
+    token: token.sprite,
     money: initialMoney,
     position: 0,
     properties: [],
