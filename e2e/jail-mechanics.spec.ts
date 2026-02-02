@@ -1,5 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
 
+async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
+  await page.addInitScript((sequence) => {
+    (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }).__TEST_DICE_ROLLS__ = sequence;
+  }, rolls);
+}
+
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
   // Try to close property modal (Pass button)
@@ -43,175 +49,198 @@ async function waitForRollButton(page: Page) {
 }
 
 test.describe('Jail Mechanics', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show Go To Jail modal elements', async ({ page }) => {
+    // Use 3 consecutive doubles to send player to jail
+    await setDiceRolls(page, [[3, 3], [3, 3], [3, 3]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should show Go To Jail modal elements', async ({ page }) => {
-    // Roll several times to try to land on Go To Jail
-    for (let i = 0; i < 8; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Roll dice - 3 doubles sends player to jail
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
 
-      await page.waitForTimeout(1500);
+    // Wait for the Go To Jail modal to appear
+    await page.waitForTimeout(2000);
 
-      // Check for Go To Jail modal
-      const gtjLabel = page.getByText('Go To Jail');
-      const sentText = page.getByText('Sent to Alcatraz');
-      if (await gtjLabel.isVisible({ timeout: 500 }).catch(() => false) && 
-          await sentText.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Found it - verify and close
-        const modal = page.locator('.fixed.inset-0.z-50');
-        await expect(modal.getByText('🔒', { exact: true })).toBeVisible();
-        await page.getByRole('button', { name: 'Continue' }).click();
-        return;
-      }
+    // Check for Go To Jail modal
+    const gtjLabel = page.getByText('Go To Jail');
+    await expect(gtjLabel).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Sent to Alcatraz')).toBeVisible();
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(500);
-    }
-    
-    // Probabilistic test
-    expect(true).toBe(true);
+    // Verify modal has lock emoji
+    const modal = page.locator('.fixed.inset-0.z-50');
+    await expect(modal.getByText('🔒', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Continue' }).click();
   });
 
   test('should display jail status in player panel when in jail', async ({ page }) => {
-    // Play until someone goes to jail
-    for (let i = 0; i < 8; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Use 3 consecutive doubles to send player to jail
+    await setDiceRolls(page, [[3, 3], [3, 3], [3, 3]]);
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-      await page.waitForTimeout(500);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      // Check if any player is in jail
-      const jailStatus = page.getByText(/In Alcatraz \(\d+ turns? left\)/);
-      if (await jailStatus.first().isVisible({ timeout: 500 }).catch(() => false)) {
-        // Verify jail status is displayed
-        await expect(jailStatus.first()).toBeVisible();
-        return;
-      }
-    }
-    
-    expect(true).toBe(true);
+    // Roll dice - 3 doubles sends player to jail
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+
+    await page.waitForTimeout(2000);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+
+    // Check if player is in jail
+    const jailStatus = page.getByText(/In Alcatraz \(\d+ turns? left\)/);
+    await expect(jailStatus.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should show jail controls when player is in jail', async ({ page }) => {
-    // Play until current player goes to jail
-    for (let i = 0; i < 10; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Use 3 consecutive doubles to send player to jail, then a non-double for player 2
+    await setDiceRolls(page, [[3, 3], [3, 3], [3, 3], [1, 2]]);
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      // Check if current player is now in jail (has jail controls)
-      const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
-      if (await rollForDoubles.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Verify jail controls are displayed (Art Deco styled)
-        await expect(rollForDoubles).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Pay $50 to Leave' })).toBeVisible();
-        await expect(page.getByText('In Alcatraz', { exact: true })).toBeVisible();
-        return;
-      }
-    }
-    
-    expect(true).toBe(true);
+    // Roll dice - 3 doubles sends player 1 to jail
+    let rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+
+    await page.waitForTimeout(2000);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+
+    // Player 2's turn
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    await page.waitForTimeout(1500);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+
+    // Now it's player 1's turn again (who is in jail)
+    const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
+    await expect(rollForDoubles).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Pay $50 to Leave' })).toBeVisible();
+    await expect(page.getByText('In Alcatraz', { exact: true })).toBeVisible();
   });
 
   test('should allow paying $50 to leave jail', async ({ page }) => {
-    // Play until current player goes to jail
-    for (let i = 0; i < 10; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Use 3 consecutive doubles to send player to jail, then a non-double for player 2
+    await setDiceRolls(page, [[3, 3], [3, 3], [3, 3], [1, 2]]);
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      // Check if current player is now in jail
-      const payToLeave = page.getByRole('button', { name: 'Pay $50 to Leave' });
-      if (await payToLeave.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Click Pay $50 to Leave
-        await payToLeave.click();
+    // Roll dice - 3 doubles sends player 1 to jail
+    let rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
 
-        // Jail status should be cleared
-        await expect(page.getByText('🔒 In Alcatraz')).not.toBeVisible({ timeout: 3000 });
+    await page.waitForTimeout(2000);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
 
-        // Normal roll button should appear
-        await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible();
-        return;
-      }
-    }
-    
-    expect(true).toBe(true);
+    // Player 2's turn
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    await page.waitForTimeout(1500);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+
+    // Now it's player 1's turn again (who is in jail)
+    const payToLeave = page.getByRole('button', { name: 'Pay $50 to Leave' });
+    await expect(payToLeave).toBeVisible({ timeout: 10000 });
+
+    // Click Pay $50 to Leave
+    await payToLeave.click();
+
+    // Jail status should be cleared
+    await expect(page.getByText('🔒 In Alcatraz')).not.toBeVisible({ timeout: 3000 });
+
+    // Normal roll button should appear
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible();
   });
 
   test('should show turn count while in jail', async ({ page }) => {
-    // Play until current player goes to jail
-    for (let i = 0; i < 10; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Use 3 consecutive doubles to send player to jail, then a non-double for player 2
+    await setDiceRolls(page, [[3, 3], [3, 3], [3, 3], [1, 2]]);
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      // Check if current player is now in jail
-      const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
-      if (await rollForDoubles.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Should show turn count
-        await expect(page.getByText(/Turn \d+ of 3/)).toBeVisible();
-        return;
-      }
-    }
-    
-    expect(true).toBe(true);
+    // Roll dice - 3 doubles sends player 1 to jail
+    let rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+
+    await page.waitForTimeout(2000);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+
+    // Player 2's turn
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    await page.waitForTimeout(1500);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
+
+    // Now it's player 1's turn again (who is in jail)
+    await expect(page.getByRole('button', { name: 'Roll for Doubles' })).toBeVisible({ timeout: 10000 });
+    // Should show turn count
+    await expect(page.getByText(/Turn \d+ of 3/)).toBeVisible();
   });
 
   test('should show roll result when rolling for doubles in jail', async ({ page }) => {
-    // Play until current player goes to jail
-    for (let i = 0; i < 10; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Use 3 consecutive doubles to send player to jail, then non-double for player 2, then non-double for jail roll
+    await setDiceRolls(page, [[3, 3], [3, 3], [3, 3], [1, 2], [1, 2]]);
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      // Check if current player is now in jail
-      const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
-      if (await rollForDoubles.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Roll for doubles
-        await rollForDoubles.click();
+    // Roll dice - 3 doubles sends player 1 to jail
+    let rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
 
-        // Wait for roll to complete
-        await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(2000);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
 
-        // Should show doubles result or "still in Alcatraz" message
-        const doublesMessage = page.getByText("Doubles! You're free!");
-        const stillInJail = page.getByText('No doubles - still in Alcatraz');
+    // Player 2's turn
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-        // One of these should be visible
-        const isDoubles = await doublesMessage.isVisible().catch(() => false);
-        const isStillJailed = await stillInJail.isVisible().catch(() => false);
+    await page.waitForTimeout(1500);
+    await closeAnyModal(page);
+    await page.waitForTimeout(500);
 
-        expect(isDoubles || isStillJailed).toBe(true);
-        return;
-      }
-    }
-    
-    expect(true).toBe(true);
+    // Now it's player 1's turn again (who is in jail)
+    const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
+    await expect(rollForDoubles).toBeVisible({ timeout: 10000 });
+
+    // Roll for doubles
+    await rollForDoubles.click();
+
+    // Wait for roll to complete
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    // Should show "still in Alcatraz" message (since we rolled non-double [1,2])
+    await expect(page.getByText('No doubles - still in Alcatraz')).toBeVisible({ timeout: 5000 });
   });
 });

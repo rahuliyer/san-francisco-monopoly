@@ -1,9 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
   try {
@@ -48,16 +44,6 @@ async function waitForRollButton(page: Page) {
     return rollForDoubles;
   }
   return rollDice;
-}
-
-async function waitForTurn(page: Page, playerName: string) {
-  const turnLabel = page.getByText(new RegExp(`${escapeRegExp(playerName)}['']s Turn`));
-  await expect
-    .poll(async () => {
-      await closeAnyModal(page);
-      return turnLabel.isVisible();
-    }, { timeout: 20000 })
-    .toBe(true);
 }
 
 async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
@@ -204,191 +190,117 @@ test.describe('Player Panel with 4 Players', () => {
 });
 
 test.describe('Player Properties Display', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show properties section after buying property', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview (position 3, brown property)
+    await setDiceRolls(page, [[1, 2]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
+    // Roll and buy the property
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
+
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await page.waitForTimeout(500);
+
+    // Properties section should appear
+    await expect(page.getByText(/Properties \(\d+\)/)).toBeVisible({ timeout: 5000 });
   });
 
-  // Disabled: This test can exceed 1 minute due to 12 random dice roll attempts
-  test.skip('should show properties section after buying property', async ({ page }) => {
-    // Buy a property
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 12;
+  test('should open properties modal when clicking on properties section', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview
+    await setDiceRolls(page, [[1, 2]]);
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      await page.waitForTimeout(1500);
+    // Roll and buy the property
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await page.waitForTimeout(500);
 
-      try {
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(500);
-          continue;
-        }
-      } catch {
-        // Not a property
-      }
+    // Click on properties section
+    const propertiesButton = page.getByText(/Properties \(\d+\)/).first();
+    await propertiesButton.click();
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
-      attempts++;
-    }
-
-    if (boughtProperty) {
-      // Wait for UI update
-      await page.waitForTimeout(1500);
-
-      // Properties section should appear
-      await expect(page.getByText(/Properties \(\d+\)/)).toBeVisible({ timeout: 5000 });
-    }
+    // Properties modal should open showing the player's properties
+    await expect(page.getByText(/'s Properties$/)).toBeVisible({ timeout: 3000 });
   });
 
-  // Disabled: This test can exceed 1 minute due to 12 random dice roll attempts
-  test.skip('should open properties modal when clicking on properties section', async ({ page }) => {
-    // Buy a property first
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 12;
+  test('should show color indicators for owned properties', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview
+    await setDiceRolls(page, [[1, 2]]);
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      await page.waitForTimeout(1500);
+    // Roll and buy the property
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await page.waitForTimeout(500);
 
-      try {
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(500);
-          continue;
-        }
-      } catch {
-        // Not a property
-      }
-
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
-      attempts++;
-    }
-
-    if (boughtProperty) {
-      // Wait for UI update
-      await page.waitForTimeout(1500);
-
-      // Click on properties section
-      const propertiesButton = page.getByText(/Properties \(\d+\)/).first();
-      await propertiesButton.click();
-
-      // Properties modal should open showing the player's properties
-      await expect(page.getByText(/'s Properties$/)).toBeVisible({ timeout: 3000 });
-    }
+    // Small color indicators should appear (h-3 w-3 rounded-sm)
+    const colorIndicators = page.locator('.h-3.w-3.rounded-sm');
+    const count = await colorIndicators.count();
+    expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  // Disabled: This test can exceed 1 minute due to 12 random dice roll attempts
-  test.skip('should show color indicators for owned properties', async ({ page }) => {
-    // Buy a property first
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 12;
+  test('should close properties modal with X button', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview
+    await setDiceRolls(page, [[1, 2]]);
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      await page.waitForTimeout(1500);
+    // Roll and buy the property
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await page.waitForTimeout(500);
 
-      try {
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(500);
-          continue;
-        }
-      } catch {
-        // Not a property
-      }
+    // Click on properties section to open modal
+    const propertiesButton = page.getByText(/Properties \(\d+\)/).first();
+    await propertiesButton.click();
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
-      attempts++;
-    }
+    // Wait for modal
+    await expect(page.getByText(/'s Properties$/)).toBeVisible({ timeout: 3000 });
 
-    if (boughtProperty) {
-      // Wait for UI update
-      await page.waitForTimeout(1500);
+    // Click X button to close (Art Deco styled)
+    const closeButton = page.locator('.rounded-full.p-2').first();
+    await closeButton.click();
 
-      // Small color indicators should appear (h-3 w-3 rounded-sm)
-      const colorIndicators = page.locator('.h-3.w-3.rounded-sm');
-      const count = await colorIndicators.count();
-      expect(count).toBeGreaterThanOrEqual(1);
-    }
-  });
-
-  // Disabled: This test can exceed 1 minute due to 12 random dice roll attempts
-  test.skip('should close properties modal with X button', async ({ page }) => {
-    // Buy a property first
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 12;
-
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-      await page.waitForTimeout(1500);
-
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-
-      try {
-        if (await buyButton.isVisible({ timeout: 1500 })) {
-          await buyButton.click();
-          boughtProperty = true;
-          await page.waitForTimeout(500);
-          continue;
-        }
-      } catch {
-        // Not a property
-      }
-
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
-      attempts++;
-    }
-
-    if (boughtProperty) {
-      // Wait for UI update
-      await page.waitForTimeout(1500);
-
-      // Click on properties section to open modal
-      const propertiesButton = page.getByText(/Properties \(\d+\)/).first();
-      await propertiesButton.click();
-
-      // Wait for modal
-      await expect(page.getByText(/'s Properties$/)).toBeVisible({ timeout: 3000 });
-
-      // Click X button to close (Art Deco styled)
-      const closeButton = page.locator('.rounded-full.p-2').first();
-      await closeButton.click();
-
-      // Modal should close
-      await page.waitForTimeout(500);
-    }
+    // Modal should close
+    await page.waitForTimeout(500);
+    await expect(page.getByText(/'s Properties$/)).not.toBeVisible({ timeout: 3000 });
   });
 });

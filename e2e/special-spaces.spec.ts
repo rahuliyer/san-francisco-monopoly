@@ -1,5 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
 
+async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
+  await page.addInitScript((sequence) => {
+    (globalThis as { __TEST_DICE_ROLLS__?: [number, number][] }).__TEST_DICE_ROLLS__ = sequence;
+  }, rolls);
+}
+
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
   // Try to close property modal (Pass button)
@@ -90,193 +96,207 @@ test.describe('Special Spaces - Visual Elements', () => {
 });
 
 test.describe('Special Space Cards', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show Continue button when landing on special spaces', async ({ page }) => {
+    // Roll [1, 3] = 4 to land on Income Tax (position 4)
+    await setDiceRolls(page, [[1, 3]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should show Continue button when landing on special spaces', async ({ page }) => {
-    // Roll dice a few times and check if Continue button ever appears
-    for (let i = 0; i < 5; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-      
-      await page.waitForTimeout(1200);
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      // Check for Continue button
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
-      if (await continueBtn.isVisible({ timeout: 800 }).catch(() => false)) {
-        await continueBtn.click();
-        await page.waitForTimeout(300);
-      } else {
-        await closeAnyModal(page);
-      }
-      
-      await page.waitForTimeout(300);
-    }
-    
-    // This is a probabilistic test - we just verify the game works
-    expect(true).toBe(true);
+    await page.waitForTimeout(1200);
+
+    // Income Tax shows Continue button
+    const continueBtn = page.getByRole('button', { name: 'Continue' });
+    await expect(continueBtn).toBeVisible({ timeout: 3000 });
+    await continueBtn.click();
+    await page.waitForTimeout(300);
   });
 
   test('should close special space modal with Continue button', async ({ page }) => {
-    // Roll until we find a special space with Continue
-    for (let i = 0; i < 5; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // Roll [1, 3] = 4 to land on Income Tax (position 4)
+    await setDiceRolls(page, [[1, 3]]);
 
-      await page.waitForTimeout(1200);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      if (await continueBtn.isVisible({ timeout: 800 }).catch(() => false)) {
-        await continueBtn.click();
-        // Modal should close
-        await expect(continueBtn).not.toBeVisible({ timeout: 2000 });
-        return; // Test passed
-      }
+    await page.waitForTimeout(1200);
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(300);
-    }
-    
-    // If we never found a special space, the test still passes
-    expect(true).toBe(true);
+    const continueBtn = page.getByRole('button', { name: 'Continue' });
+    await expect(continueBtn).toBeVisible({ timeout: 3000 });
+    await continueBtn.click();
+    // Modal should close
+    await expect(continueBtn).not.toBeVisible({ timeout: 2000 });
   });
 });
 
 test.describe('Tax Spaces', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should display tax amount when landing on tax space', async ({ page }) => {
+    // Roll [1, 3] = 4 to land on Income Tax (position 4)
+    await setDiceRolls(page, [[1, 3]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should display tax amount when landing on tax space', async ({ page }) => {
-    // Roll a few times to see if we land on tax
-    for (let i = 0; i < 5; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      await page.waitForTimeout(1200);
+    await page.waitForTimeout(1200);
 
-      // Check for Tax modal
-      const amountPaid = page.getByText('Amount paid');
-      if (await amountPaid.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Found tax modal - verify it shows correctly
-        await expect(amountPaid).toBeVisible();
-        await page.getByRole('button', { name: 'Continue' }).click();
-        return;
-      }
-
-      await closeAnyModal(page);
-      await page.waitForTimeout(300);
-    }
-    
-    // Probabilistic test - passes either way
-    expect(true).toBe(true);
+    // Check for Tax modal
+    const amountPaid = page.getByText('Amount paid');
+    await expect(amountPaid).toBeVisible({ timeout: 3000 });
+    await page.getByRole('button', { name: 'Continue' }).click();
   });
 });
 
 test.describe('Go Space', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should display +$200 on GO modal', async ({ page }) => {
+    // Roll sequence to reach position 40 (GO): P1 rolls [6,5]=11, P2 rolls, P1 rolls [6,5]=11, etc.
+    // Position: 0 -> 11 -> 22 -> 33 -> 40 (GO)
+    await setDiceRolls(page, [[6, 5], [1, 2], [6, 5], [1, 2], [6, 5], [1, 2], [4, 3]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should display +$200 on GO modal', async ({ page }) => {
-    // Roll several times to try to land on GO
-    for (let i = 0; i < 5; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // P1 rolls [6,5] = 11, position 11
+    let rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
 
-      await page.waitForTimeout(1200);
+    // P2 rolls [1,2] = 3
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
 
-      // Check for GO modal
-      const goLabel = page.getByText('GO!');
-      if (await goLabel.isVisible({ timeout: 500 }).catch(() => false)) {
-        await expect(page.getByText('+$200')).toBeVisible();
-        await page.getByRole('button', { name: 'Continue' }).click();
-        return;
-      }
+    // P1 rolls [6,5] = 11, position 22
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(300);
-    }
-    
-    expect(true).toBe(true);
+    // P2 rolls [1,2] = 3
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
+
+    // P1 rolls [6,5] = 11, position 33
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
+
+    // P2 rolls [1,2] = 3
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
+
+    // P1 rolls [4,3] = 7, position 40 = GO
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+
+    // Check for GO modal
+    const goLabel = page.getByText('GO!');
+    await expect(goLabel).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText('+$200')).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
   });
 });
 
 test.describe('Free Parking', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show Free Parking message', async ({ page }) => {
+    // Roll sequence to reach position 20 (Free Parking): P1 rolls [6,5]=11, P2 rolls, P1 rolls [4,5]=9
+    // Position: 0 -> 11 -> 20 (Free Parking)
+    await setDiceRolls(page, [[6, 5], [1, 2], [4, 5]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should show Free Parking message', async ({ page }) => {
-    for (let i = 0; i < 5; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    // P1 rolls [6,5] = 11, position 11
+    let rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
 
-      await page.waitForTimeout(1200);
+    // P2 rolls [1,2] = 3
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await closeAnyModal(page);
+    await page.waitForTimeout(300);
 
-      // Check for Free Parking modal
-      const fpMessage = page.getByText('Take a break and enjoy the view of Golden Gate Park!');
-      if (await fpMessage.isVisible({ timeout: 500 }).catch(() => false)) {
-        await expect(fpMessage).toBeVisible();
-        await page.getByRole('button', { name: 'Continue' }).click();
-        return;
-      }
+    // P1 rolls [4,5] = 9, position 20 (Free Parking)
+    rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1200);
 
-      await closeAnyModal(page);
-      await page.waitForTimeout(300);
-    }
-    
-    expect(true).toBe(true);
+    // Check for Free Parking modal
+    const fpMessage = page.getByText('Take a break and enjoy the view of Golden Gate Park!');
+    await expect(fpMessage).toBeVisible({ timeout: 3000 });
+    await page.getByRole('button', { name: 'Continue' }).click();
   });
 });
 
 test.describe('Just Visiting Jail', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show Just Visiting message', async ({ page }) => {
+    // Roll [4, 6] = 10 to land on Just Visiting Jail (position 10)
+    await setDiceRolls(page, [[4, 6]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should show Just Visiting message', async ({ page }) => {
-    for (let i = 0; i < 5; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-      await page.waitForTimeout(1200);
+    await page.waitForTimeout(1200);
 
-      // Check for Just Visiting modal
-      const jvLabel = page.getByText('Just Visiting');
-      if (await jvLabel.isVisible({ timeout: 500 }).catch(() => false)) {
-        await expect(page.getByText("You're just visiting. No penalty!")).toBeVisible();
-        await page.getByRole('button', { name: 'Continue' }).click();
-        return;
-      }
-
-      await closeAnyModal(page);
-      await page.waitForTimeout(300);
-    }
-    
-    expect(true).toBe(true);
+    // Check for Just Visiting modal
+    const jvLabel = page.getByText('Just Visiting');
+    await expect(jvLabel).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText("You're just visiting. No penalty!")).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
   });
 });

@@ -53,214 +53,142 @@ async function setDiceRolls(page: Page, rolls: Array<[number, number]>) {
 }
 
 test.describe('Property Purchase', () => {
-  test.beforeEach(async ({ page }) => {
+  test('should show property card with buy options when landing on unowned property', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview (position 3)
+    await setDiceRolls(page, [[1, 2]]);
+
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
-  });
 
-  test('should show property card with buy options when landing on unowned property', async ({ page }) => {
-    // Roll dice
     const rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 8000 });
 
-    // Wait for the property card modal to appear (if landing on a purchasable property)
-    // Or wait for turn to change if landing on a non-purchasable space
+    // Property modal should appear
     const propertyModal = page.getByText('Title Deed');
     const passButton = page.getByRole('button', { name: 'Pass' });
 
-    // Check if we landed on a purchasable property
-    try {
-      await expect(propertyModal).toBeVisible({ timeout: 3000 });
-      // If we see the property modal, we should see Buy and Pass buttons
-      await expect(passButton).toBeVisible();
-      await expect(page.getByRole('button', { name: /Buy for \$/ })).toBeVisible();
-    } catch {
-      // We might have landed on a non-purchasable space
-      // That's okay - we'll test the purchase flow with a more controlled test
-    }
+    await expect(propertyModal).toBeVisible({ timeout: 3000 });
+    await expect(passButton).toBeVisible();
+    await expect(page.getByRole('button', { name: /Buy for \$/ })).toBeVisible();
   });
 
   test('should allow buying a property', async ({ page }) => {
-    // Roll dice and keep trying until we land on a property we can buy
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 10;
+    // Roll [1, 2] = 3 to land on Bayview
+    await setDiceRolls(page, [[1, 2]]);
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-      // Check if buy button appears
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-
-      try {
-        await expect(buyButton).toBeVisible({ timeout: 3000 });
-        // Click buy
-        await buyButton.click();
-        boughtProperty = true;
-      } catch {
-        // Didn't land on a purchasable property, wait for next turn
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
-
-    if (boughtProperty) {
-      // Verify the property was bought (modal should close and player money should decrease)
-      await expect(page.getByRole('button', { name: /Buy for \$/ })).not.toBeVisible({ timeout: 3000 });
-    }
-  });
-
-  test('should allow passing on a property', async ({ page }) => {
-    // Roll dice and keep trying until we land on a property
-    let foundProperty = false;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (!foundProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-      await page.waitForTimeout(1500);
-
-      const passButton = page.getByRole('button', { name: 'Pass' });
-
-      try {
-        if (await passButton.isVisible({ timeout: 1500 })) {
-          // Click pass
-          await passButton.click();
-          foundProperty = true;
-
-          // Verify modal closes
-          await expect(passButton).not.toBeVisible({ timeout: 3000 });
-        }
-      } catch {
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
-  });
-
-  test('should show property price in buy button', async ({ page }) => {
-    // Roll dice and keep trying until we land on a property
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-      const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
-
-      try {
-        await expect(buyButton).toBeVisible({ timeout: 3000 });
-        // Verify the button text contains a price
-        const buttonText = await buyButton.textContent();
-        expect(buttonText).toMatch(/Buy for \$\d+/);
-        break;
-      } catch {
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
-  });
-
-  // Disabled: This test can exceed 1 minute due to 15 random dice roll attempts
-  test.skip('should decrease player money after buying property', async ({ page }) => {
-    // Get initial money
-    const initialMoney = await page.getByText('$1,500').first().textContent();
-    expect(initialMoney).toBe('$1,500');
-
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 15;
-
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
-
-      try {
-        await expect(buyButton).toBeVisible({ timeout: 3000 });
-        await buyButton.click();
-        boughtProperty = true;
-      } catch {
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
-
-    if (boughtProperty) {
-      // Wait for modal to close
-      await expect(page.getByRole('button', { name: /Buy for \$/ })).not.toBeVisible({ timeout: 3000 });
-
-      // Money should be less than $1,500 now
-      // Check that at least one player has less than $1,500
-      const moneyTexts = await page.getByText(/\$\d+,?\d*/).allTextContents();
-      const hasReducedMoney = moneyTexts.some(text => {
-        const match = text.match(/\$(\d+,?\d*)/);
-        if (match) {
-          const value = parseInt(match[1].replace(',', ''), 10);
-          return value < 1500 && value > 0;
-        }
-        return false;
-      });
-      // We should have at least one player with reduced money if purchase was successful
-      // Note: This test may be flaky depending on game flow
-    }
-  });
-});
-
-test.describe('Property Ownership Display', () => {
-  // Disabled: This test can exceed 1 minute due to 15 random dice roll attempts
-  test.skip('should show owned property in player panel after purchase', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play Now' }).click();
     await page.getByRole('button', { name: 'START GAME' }).click();
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-    let boughtProperty = false;
-    let attempts = 0;
-    const maxAttempts = 15;
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
 
-    while (!boughtProperty && attempts < maxAttempts) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
 
-      const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    // Verify the property was bought (modal should close)
+    await expect(buyButton).not.toBeVisible({ timeout: 3000 });
+  });
 
-      try {
-        await expect(buyButton).toBeVisible({ timeout: 3000 });
-        await buyButton.click();
-        boughtProperty = true;
-      } catch {
-        await closeAnyModal(page);
-        await page.waitForTimeout(1000);
-        attempts++;
-      }
-    }
+  test('should allow passing on a property', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview
+    await setDiceRolls(page, [[1, 2]]);
 
-    if (boughtProperty) {
-      // Wait a bit for the UI to update
-      await page.waitForTimeout(1500);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
 
-      // Check that Properties section appears in player panel
-      const propertiesSection = page.getByText(/Properties \(\d+\)/);
-      await expect(propertiesSection.first()).toBeVisible({ timeout: 5000 });
-    }
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(1500);
+
+    const passButton = page.getByRole('button', { name: 'Pass' });
+    await expect(passButton).toBeVisible({ timeout: 3000 });
+    await passButton.click();
+
+    // Verify modal closes
+    await expect(passButton).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('should show property price in buy button', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview ($60)
+    await setDiceRolls(page, [[1, 2]]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    const buyButton = page.getByRole('button', { name: /Buy for \$\d+/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    // Verify the button text contains a price
+    const buttonText = await buyButton.textContent();
+    expect(buttonText).toMatch(/Buy for \$\d+/);
+  });
+
+  test('should decrease player money after buying property', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview ($60)
+    await setDiceRolls(page, [[1, 2]]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
+    // Get initial money
+    const initialMoney = await page.getByText('$1,500').first().textContent();
+    expect(initialMoney).toBe('$1,500');
+
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+
+    // Wait for modal to close
+    await expect(buyButton).not.toBeVisible({ timeout: 3000 });
+
+    // Player 1 bought Bayview for $60, should now have $1,440
+    await expect(page.getByText('$1,440')).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('Property Ownership Display', () => {
+  test('should show owned property in player panel after purchase', async ({ page }) => {
+    // Roll [1, 2] = 3 to land on Bayview
+    await setDiceRolls(page, [[1, 2]]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'START GAME' }).click();
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 10000 });
+
+    const rollBtn = await waitForRollButton(page);
+    await rollBtn.click();
+    await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+
+    const buyButton = page.getByRole('button', { name: /Buy for \$/ });
+    await expect(buyButton).toBeVisible({ timeout: 3000 });
+    await buyButton.click();
+    await page.waitForTimeout(500);
+
+    // Check that Properties section appears in player panel
+    const propertiesSection = page.getByText(/Properties \(\d+\)/);
+    await expect(propertiesSection.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should show owner indicator on property space on board', async ({ page }) => {
