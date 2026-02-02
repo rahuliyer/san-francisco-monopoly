@@ -5,10 +5,15 @@ test('shows victory modal when a winner is set', async ({ page }) => {
   await page.getByRole('button', { name: 'Play Now' }).click()
   await page.getByRole('button', { name: /start game/i }).click()
 
+  await page.waitForFunction(() => {
+    return window.__GAME_LOOP__?.getState().players.length
+  })
+
   await page.evaluate(() => {
     const loop = window.__GAME_LOOP__
     if (!loop) return
     const state = loop.getState()
+    if (!state.players.length) return
     const players = state.players.map((player, index) => ({
       ...player,
       isBankrupt: index !== 0,
@@ -22,7 +27,7 @@ test('shows victory modal when a winner is set', async ({ page }) => {
       ...state,
       players,
       gameOver: true,
-      winnerId: players[0].id,
+      winnerId: players[0]?.id ?? null,
       awaitingPropertyDecision: false,
       awaitingSpecialSpace: false,
       selectedSpace: null,
