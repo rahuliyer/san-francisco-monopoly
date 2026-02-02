@@ -15,6 +15,8 @@ interface GameControlsProps {
   canAffordJailFee?: boolean
   onTrade?: () => void
   tradeDisabled?: boolean
+  onManageProperties?: () => void
+  managePropertiesDisabled?: boolean
   gameOver?: boolean
   winnerName?: string
 }
@@ -31,6 +33,8 @@ export function GameControls({
   canAffordJailFee = true,
   onTrade,
   tradeDisabled = false,
+  onManageProperties,
+  managePropertiesDisabled = false,
   gameOver = false,
   winnerName,
 }: GameControlsProps) {
@@ -121,6 +125,17 @@ export function GameControls({
               className="w-full border-[#2c6e4f]/50 text-[#2c6e4f] hover:bg-[#2c6e4f]/10 font-serif"
             >
               Trade
+            </Button>
+          )}
+
+          {onManageProperties && (
+            <Button
+              onClick={onManageProperties}
+              disabled={managePropertiesDisabled}
+              variant="outline"
+              className="w-full border-[#2c6e4f]/50 text-[#2c6e4f] hover:bg-[#2c6e4f]/10 font-serif"
+            >
+              Manage Properties
             </Button>
           )}
         </div>

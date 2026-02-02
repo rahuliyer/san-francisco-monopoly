@@ -50,7 +50,7 @@ describe('GameControls component', () => {
   it('should call onRoll when Roll Dice button is clicked', () => {
     const onRoll = jest.fn()
     render(<GameControls {...defaultProps} onRoll={onRoll} />)
-    
+
     fireEvent.click(screen.getByRole('button', { name: /roll dice/i }))
     expect(onRoll).toHaveBeenCalledTimes(1)
   })
@@ -73,7 +73,7 @@ describe('GameControls component', () => {
   it('should display different player names correctly', () => {
     const { rerender } = render(<GameControls {...defaultProps} currentPlayerName="Bob" />)
     expect(screen.getByText("Bob's Turn")).toBeInTheDocument()
-    
+
     rerender(<GameControls {...defaultProps} currentPlayerName="Charlie" />)
     expect(screen.getByText("Charlie's Turn")).toBeInTheDocument()
   })
@@ -105,6 +105,33 @@ describe('GameControls component', () => {
     })
   })
 
+  describe('manage properties button', () => {
+    it('should render Manage Properties button when handler is provided', () => {
+      render(<GameControls {...defaultProps} onManageProperties={jest.fn()} />)
+      expect(screen.getByRole('button', { name: 'Manage Properties' })).toBeInTheDocument()
+    })
+
+    it('should call onManageProperties when Manage Properties button is clicked', () => {
+      const onManageProperties = jest.fn()
+      render(<GameControls {...defaultProps} onManageProperties={onManageProperties} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Manage Properties' }))
+      expect(onManageProperties).toHaveBeenCalledTimes(1)
+    })
+
+    it('should disable Manage Properties button when managePropertiesDisabled is true', () => {
+      render(
+        <GameControls
+          {...defaultProps}
+          onManageProperties={jest.fn()}
+          managePropertiesDisabled={true}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: 'Manage Properties' })).toBeDisabled()
+    })
+  })
+
   // Jail-related tests
   describe('when player is in jail', () => {
     const jailProps = {
@@ -133,7 +160,7 @@ describe('GameControls component', () => {
     it('should call onPayJailFee when Pay $50 button is clicked', () => {
       const onPayJailFee = jest.fn()
       render(<GameControls {...jailProps} onPayJailFee={onPayJailFee} />)
-      
+
       fireEvent.click(screen.getByRole('button', { name: /pay \$50 to leave/i }))
       expect(onPayJailFee).toHaveBeenCalledTimes(1)
     })
@@ -157,7 +184,7 @@ describe('GameControls component', () => {
     it('should call onRoll when Roll for Doubles button is clicked', () => {
       const onRoll = jest.fn()
       render(<GameControls {...jailProps} onRoll={onRoll} />)
-      
+
       fireEvent.click(screen.getByRole('button', { name: /roll for doubles/i }))
       expect(onRoll).toHaveBeenCalledTimes(1)
     })

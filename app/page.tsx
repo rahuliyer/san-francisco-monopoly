@@ -58,6 +58,11 @@ export default function MonopolyGame() {
   const [gameStarted, setGameStarted] = useState(false)
   const [isTradeOpen, setIsTradeOpen] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isTradeOpenRef = useRef(isTradeOpen)
+
+  useEffect(() => {
+    isTradeOpenRef.current = isTradeOpen
+  }, [isTradeOpen])
 
   const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
     if (typeof window !== "undefined" && window.__DETERMINISTIC_GAME_CONFIG__) {
@@ -170,12 +175,38 @@ export default function MonopolyGame() {
   }, [gameState.players, gameState.currentPlayerIndex, addLog])
 
   const handleOpenTrade = useCallback(() => {
+    if (endTurnTimeoutRef.current) {
+      clearTimeout(endTurnTimeoutRef.current)
+      endTurnTimeoutRef.current = null
+    }
     setIsTradeOpen(true)
   }, [])
 
   const handleCloseTrade = useCallback(() => {
     setIsTradeOpen(false)
-  }, [])
+    if (
+      gameState.hasRolled &&
+      !gameState.awaitingPropertyDecision &&
+      !gameState.awaitingSpecialSpace &&
+      gameState.selectedSpace === null &&
+      gameState.specialSpace === null &&
+      gameState.viewingPropertiesForPlayer === null &&
+      !gameState.gameOver
+    ) {
+      endTurnTimeoutRef.current = setTimeout(() => {
+        handleActionComplete()
+      }, 500)
+    }
+  }, [
+    gameState.hasRolled,
+    gameState.awaitingPropertyDecision,
+    gameState.awaitingSpecialSpace,
+    gameState.selectedSpace,
+    gameState.specialSpace,
+    gameState.viewingPropertiesForPlayer,
+    gameState.gameOver,
+    handleActionComplete,
+  ])
 
   const handleTrade = useCallback((trade: TradePayload) => {
     let logMessage = ""
@@ -698,7 +729,14 @@ export default function MonopolyGame() {
       // We need to check after the dialog delay
       setTimeout(() => {
         setGameState((prev) => {
-          if (prev.awaitingPropertyDecision || prev.awaitingSpecialSpace) {
+          if (
+            prev.awaitingPropertyDecision ||
+            prev.awaitingSpecialSpace ||
+            prev.selectedSpace ||
+            prev.specialSpace ||
+            prev.viewingPropertiesForPlayer ||
+            isTradeOpenRef.current
+          ) {
             // Player needs to interact with a modal - action completes when modal closes
             return prev
           } else {
@@ -716,6 +754,10 @@ export default function MonopolyGame() {
   const handleSpaceClick = useCallback((space: Space) => {
     if (gameState.gameOver) return
     if (space.type === "property" || space.type === "railroad" || space.type === "utility") {
+      if (endTurnTimeoutRef.current) {
+        clearTimeout(endTurnTimeoutRef.current)
+        endTurnTimeoutRef.current = null
+      }
       setGameState((prev) => ({ ...prev, selectedSpace: space }))
     }
   }, [gameState.gameOver])
@@ -736,7 +778,27 @@ export default function MonopolyGame() {
         rentPaid: undefined,
       }
     })
-  }, [handleActionComplete])
+    if (
+      gameState.hasRolled &&
+      !gameState.awaitingPropertyDecision &&
+      !gameState.awaitingSpecialSpace &&
+      gameState.specialSpace === null &&
+      gameState.viewingPropertiesForPlayer === null &&
+      !gameState.gameOver
+    ) {
+      endTurnTimeoutRef.current = setTimeout(() => {
+        handleActionComplete()
+      }, 500)
+    }
+  }, [
+    gameState.hasRolled,
+    gameState.awaitingPropertyDecision,
+    gameState.awaitingSpecialSpace,
+    gameState.specialSpace,
+    gameState.viewingPropertiesForPlayer,
+    gameState.gameOver,
+    handleActionComplete,
+  ])
 
   const handlePassProperty = useCallback(() => {
     const space = gameState.selectedSpace
@@ -937,12 +999,36 @@ export default function MonopolyGame() {
   ])
 
   const handleViewPlayerProperties = useCallback((player: Player) => {
+    if (endTurnTimeoutRef.current) {
+      clearTimeout(endTurnTimeoutRef.current)
+      endTurnTimeoutRef.current = null
+    }
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
   }, [])
 
   const handleClosePlayerProperties = useCallback(() => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: null }))
-  }, [])
+    if (
+      gameState.hasRolled &&
+      !gameState.awaitingPropertyDecision &&
+      !gameState.awaitingSpecialSpace &&
+      gameState.selectedSpace === null &&
+      gameState.specialSpace === null &&
+      !gameState.gameOver
+    ) {
+      endTurnTimeoutRef.current = setTimeout(() => {
+        handleActionComplete()
+      }, 500)
+    }
+  }, [
+    gameState.hasRolled,
+    gameState.awaitingPropertyDecision,
+    gameState.awaitingSpecialSpace,
+    gameState.selectedSpace,
+    gameState.specialSpace,
+    gameState.gameOver,
+    handleActionComplete,
+  ])
 
   // Handle Escape key to close any open dialog
   useEffect(() => {
@@ -1131,6 +1217,17 @@ export default function MonopolyGame() {
     currentPlayer.isBankrupt ||
     activePlayersCount < 2
 
+  const managePropertiesDisabled =
+    isTradeOpen ||
+    gameState.rolling ||
+    gameState.awaitingPropertyDecision ||
+    gameState.awaitingSpecialSpace ||
+    gameState.selectedSpace !== null ||
+    gameState.specialSpace !== null ||
+    gameState.viewingPropertiesForPlayer !== null ||
+    gameState.gameOver ||
+    currentPlayer.isBankrupt
+
   const canMortgageSelectedSpace =
     gameState.selectedSpace &&
     selectedSpaceMortgageValue !== undefined &&
@@ -1192,6 +1289,8 @@ export default function MonopolyGame() {
           canAffordJailFee={currentPlayer.money >= JAIL_FEE}
           onTrade={handleOpenTrade}
           tradeDisabled={tradeDisabled}
+          onManageProperties={() => handleViewPlayerProperties(currentPlayer)}
+          managePropertiesDisabled={managePropertiesDisabled}
           gameOver={gameState.gameOver}
           winnerName={winner?.name ?? undefined}
         />
