@@ -11,9 +11,8 @@ async function closeAnyModal(page: Page) {
   // Try to close property modal (Pass button)
   try {
     const passBtn = page.getByRole('button', { name: 'Pass' });
-    if (await passBtn.isVisible({ timeout: 500 })) {
+    if (await passBtn.isVisible({ timeout: 300 })) {
       await passBtn.click();
-      await page.waitForTimeout(500);
       return;
     }
   } catch { /* No modal */ }
@@ -21,9 +20,8 @@ async function closeAnyModal(page: Page) {
   // Try to close special space modal (Continue button)
   try {
     const continueBtn = page.getByRole('button', { name: 'Continue' });
-    if (await continueBtn.isVisible({ timeout: 500 })) {
+    if (await continueBtn.isVisible({ timeout: 300 })) {
       await continueBtn.click();
-      await page.waitForTimeout(500);
       return;
     }
   } catch { /* No modal */ }
@@ -62,9 +60,6 @@ test.describe('Jail Mechanics', () => {
     const rollBtn = await waitForRollButton(page);
     await rollBtn.click();
 
-    // Wait for the Go To Jail modal to appear
-    await page.waitForTimeout(2000);
-
     // Check for Go To Jail modal
     const gtjLabel = page.getByText('Go To Jail');
     await expect(gtjLabel).toBeVisible({ timeout: 5000 });
@@ -90,9 +85,9 @@ test.describe('Jail Mechanics', () => {
     const rollBtn = await waitForRollButton(page);
     await rollBtn.click();
 
-    await page.waitForTimeout(2000);
+    // Wait for Go To Jail modal then close it
+    await expect(page.getByText('Go To Jail')).toBeVisible({ timeout: 5000 });
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Check if player is in jail
     const jailStatus = page.getByText(/In Alcatraz \(\d+ turns? left\)/);
@@ -112,18 +107,15 @@ test.describe('Jail Mechanics', () => {
     let rollBtn = await waitForRollButton(page);
     await rollBtn.click();
 
-    await page.waitForTimeout(2000);
+    // Wait for Go To Jail modal then close it
+    await expect(page.getByText('Go To Jail')).toBeVisible({ timeout: 5000 });
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Player 2's turn
     rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-    await page.waitForTimeout(1500);
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Now it's player 1's turn again (who is in jail)
     const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
@@ -145,18 +137,15 @@ test.describe('Jail Mechanics', () => {
     let rollBtn = await waitForRollButton(page);
     await rollBtn.click();
 
-    await page.waitForTimeout(2000);
+    // Wait for Go To Jail modal then close it
+    await expect(page.getByText('Go To Jail')).toBeVisible({ timeout: 5000 });
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Player 2's turn
     rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-    await page.waitForTimeout(1500);
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Now it's player 1's turn again (who is in jail)
     const payToLeave = page.getByRole('button', { name: 'Pay $50 to Leave' });
@@ -185,18 +174,15 @@ test.describe('Jail Mechanics', () => {
     let rollBtn = await waitForRollButton(page);
     await rollBtn.click();
 
-    await page.waitForTimeout(2000);
+    // Wait for Go To Jail modal then close it
+    await expect(page.getByText('Go To Jail')).toBeVisible({ timeout: 5000 });
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Player 2's turn
     rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-    await page.waitForTimeout(1500);
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Now it's player 1's turn again (who is in jail)
     await expect(page.getByRole('button', { name: 'Roll for Doubles' })).toBeVisible({ timeout: 10000 });
@@ -217,18 +203,15 @@ test.describe('Jail Mechanics', () => {
     let rollBtn = await waitForRollButton(page);
     await rollBtn.click();
 
-    await page.waitForTimeout(2000);
+    // Wait for Go To Jail modal then close it
+    await expect(page.getByText('Go To Jail')).toBeVisible({ timeout: 5000 });
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Player 2's turn
     rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
-
-    await page.waitForTimeout(1500);
     await closeAnyModal(page);
-    await page.waitForTimeout(500);
 
     // Now it's player 1's turn again (who is in jail)
     const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
