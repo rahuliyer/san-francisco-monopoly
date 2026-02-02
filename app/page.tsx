@@ -57,6 +57,7 @@ export default function MonopolyGame() {
   const [showSplash, setShowSplash] = useState(true)
   const [gameStarted, setGameStarted] = useState(false)
   const [isTradeOpen, setIsTradeOpen] = useState(false)
+  const [showVictoryModal, setShowVictoryModal] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
@@ -74,6 +75,7 @@ export default function MonopolyGame() {
       gameOver: false,
       winnerId: null,
     }))
+    setShowVictoryModal(false)
     setGameStarted(true)
   }
 
@@ -943,7 +945,9 @@ export default function MonopolyGame() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (isTradeOpen) {
+        if (showVictoryModal) {
+          setShowVictoryModal(false)
+        } else if (isTradeOpen) {
           handleCloseTrade()
         } else if (gameState.viewingPropertiesForPlayer) {
           handleClosePlayerProperties()
@@ -961,6 +965,7 @@ export default function MonopolyGame() {
     }
   }, [
     isTradeOpen,
+    showVictoryModal,
     gameState.viewingPropertiesForPlayer,
     gameState.selectedSpace,
     gameState.specialSpace,
@@ -1029,6 +1034,12 @@ export default function MonopolyGame() {
       endTurnTimeoutRef.current = null
     }
   }, [gameState.gameOver])
+
+  useEffect(() => {
+    if (gameState.gameOver && gameState.winnerId !== null) {
+      setShowVictoryModal(true)
+    }
+  }, [gameState.gameOver, gameState.winnerId])
 
   useEffect(() => {
     if (gameState.gameOver) {
@@ -1342,6 +1353,25 @@ export default function MonopolyGame() {
           onClose={handleCloseTrade}
           onSubmit={handleTrade}
         />
+      )}
+
+      {showVictoryModal && winner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border-2 border-[#8B6914] bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-6 text-center shadow-2xl">
+            <div className="mb-3 text-3xl">🏆</div>
+            <h2 className="text-2xl font-serif font-bold text-[#2c3e50]">Victory!</h2>
+            <p className="mt-2 text-lg font-serif text-[#5c4a1f]">
+              {winner.name} wins the game after every opponent went bankrupt.
+            </p>
+            <p className="mt-1 text-sm text-[#8B6914]">Thanks for playing San Francisco Monopoly.</p>
+            <button
+              onClick={() => setShowVictoryModal(false)}
+              className="mt-5 inline-flex items-center justify-center rounded-full border border-[#8B6914] bg-[#d4af37]/20 px-5 py-2 text-sm font-serif font-semibold text-[#8B6914] transition-colors hover:bg-[#d4af37]/30"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
       )}
     </main>
   )

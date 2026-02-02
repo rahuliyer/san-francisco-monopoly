@@ -6,7 +6,17 @@ import MonopolyGame from '@/app/page'
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ fill, ...props }: { alt: string; src: string; fill?: boolean }) => {
+  default: ({
+    fill,
+    priority,
+    ...props
+  }: {
+    alt: string
+    src: string
+    fill?: boolean
+    priority?: boolean
+  }) => {
+    void priority
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     return <img {...props} data-fill={fill ? 'true' : undefined} />
   },
