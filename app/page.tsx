@@ -9,6 +9,7 @@ import { GameControls } from "@/components/game-controls"
 import { PropertyCard } from "@/components/property-card"
 import { SpecialSpaceCard } from "@/components/special-space-card"
 import { TradeModal, type TradePayload } from "@/components/trade-modal"
+import { VictoryModal } from "@/components/victory-modal"
 import {
   Player,
   Space,
@@ -944,6 +945,37 @@ export default function MonopolyGame() {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: null }))
   }, [])
 
+  const handlePlayAgain = useCallback(() => {
+    // Reset to splash screen
+    setGameStarted(false)
+    setShowSplash(true)
+    setIsTradeOpen(false)
+    // Reset game state
+    setGameState((prev) => ({
+      ...prev,
+      players: [],
+      currentPlayerIndex: 0,
+      propertyOwners: {},
+      mortgagedProperties: {},
+      propertyHouses: {},
+      diceValues: getRandomInitialDice(),
+      hasRolled: false,
+      rolling: false,
+      consecutiveDoubles: 0,
+      selectedSpace: null,
+      specialSpace: null,
+      drawnCard: null,
+      gameLog: [],
+      awaitingPropertyDecision: false,
+      awaitingSpecialSpace: false,
+      isOwnProperty: false,
+      rentPaid: undefined,
+      viewingPropertiesForPlayer: null,
+      gameOver: false,
+      winnerId: null,
+    }))
+  }, [])
+
   // Handle Escape key to close any open dialog
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1346,6 +1378,16 @@ export default function MonopolyGame() {
           propertyOwners={gameState.propertyOwners}
           onClose={handleCloseTrade}
           onSubmit={handleTrade}
+        />
+      )}
+
+      {/* Victory Modal */}
+      {gameState.gameOver && winner && (
+        <VictoryModal
+          winner={winner}
+          players={gameState.players}
+          propertyOwners={gameState.propertyOwners}
+          onPlayAgain={handlePlayAgain}
         />
       )}
     </main>
