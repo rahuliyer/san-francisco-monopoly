@@ -1178,55 +1178,54 @@ export default function MonopolyGame() {
   const canAffordUnmortgage =
     selectedSpaceUnmortgageCost !== undefined &&
     currentPlayer.money >= selectedSpaceUnmortgageCost
-  const playerPanelColumnsClass =
-    gameState.players.length === 2
-      ? "md:grid-cols-2"
-      : gameState.players.length === 3
-        ? "md:grid-cols-3"
-        : "md:grid-cols-4"
 
   return (
-    <main className="vintage-paper min-h-screen p-4">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6">
+    <main className="vintage-paper h-screen overflow-hidden p-2 sm:p-4">
+      <div className="mx-auto flex h-full max-w-7xl flex-col lg:flex-row lg:items-start lg:gap-4">
         {/* Center - Game Board */}
-        <div className="overflow-auto rounded-lg golden-glow">
-          <GameBoard
-            players={gameState.players}
-            onSpaceClick={handleSpaceClick}
-            propertyOwners={gameState.propertyOwners}
-            propertyHouses={gameState.propertyHouses}
-          />
-        </div>
-
-        {/* Player Panels - Below the board */}
-        <div className={`grid w-full max-w-4xl grid-cols-2 gap-3 ${playerPanelColumnsClass}`}>
-          {gameState.players.map((player) => (
-            <PlayerPanel
-              key={player.id}
-              player={player}
-              isCurrentTurn={player.id === currentPlayer.id && !player.isBankrupt && !gameState.gameOver}
+        <div className="flex flex-1 items-center justify-center lg:flex-none">
+          <div className="board-container rounded-lg golden-glow">
+            <GameBoard
+              players={gameState.players}
+              onSpaceClick={handleSpaceClick}
               propertyOwners={gameState.propertyOwners}
-              onPropertiesClick={() => handleViewPlayerProperties(player)}
+              propertyHouses={gameState.propertyHouses}
             />
-          ))}
+          </div>
         </div>
 
-        {/* Game Controls - Below the player panels */}
-        <GameControls
-          diceValues={gameState.diceValues}
-          rolling={gameState.rolling}
-          hasRolled={gameState.hasRolled}
-          onRoll={handleRoll}
-          currentPlayerName={currentPlayer.name}
-          isInJail={currentPlayer.inJail}
-          jailTurns={currentPlayer.jailTurns}
-          onPayJailFee={handlePayJailFee}
-          canAffordJailFee={currentPlayer.money >= JAIL_FEE}
-          onTrade={handleOpenTrade}
-          tradeDisabled={tradeDisabled}
-          gameOver={gameState.gameOver}
-          winnerName={winner?.name ?? undefined}
-        />
+        {/* Side Panel - Controls and Player Info */}
+        <div className="flex flex-col gap-3 lg:h-full lg:w-80 lg:flex-shrink-0 overflow-auto py-2">
+          {/* Game Controls */}
+          <GameControls
+            diceValues={gameState.diceValues}
+            rolling={gameState.rolling}
+            hasRolled={gameState.hasRolled}
+            onRoll={handleRoll}
+            currentPlayerName={currentPlayer.name}
+            isInJail={currentPlayer.inJail}
+            jailTurns={currentPlayer.jailTurns}
+            onPayJailFee={handlePayJailFee}
+            canAffordJailFee={currentPlayer.money >= JAIL_FEE}
+            onTrade={handleOpenTrade}
+            tradeDisabled={tradeDisabled}
+            gameOver={gameState.gameOver}
+            winnerName={winner?.name ?? undefined}
+          />
+
+          {/* Player Panels */}
+          <div className={`grid grid-cols-2 gap-2 lg:grid-cols-1 lg:gap-3`}>
+            {gameState.players.map((player) => (
+              <PlayerPanel
+                key={player.id}
+                player={player}
+                isCurrentTurn={player.id === currentPlayer.id && !player.isBankrupt && !gameState.gameOver}
+                propertyOwners={gameState.propertyOwners}
+                onPropertiesClick={() => handleViewPlayerProperties(player)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Player Properties Modal */}
