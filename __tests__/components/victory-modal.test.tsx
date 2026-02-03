@@ -10,7 +10,7 @@ describe('VictoryModal', () => {
     id: 0,
     name: 'Player 1',
     color: '#C4451A',
-    token: '🚃',
+    token: '/images/tokens/cable-car.png',
     money: 1500,
     position: 0,
     properties: [],
