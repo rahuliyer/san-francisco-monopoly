@@ -760,15 +760,142 @@ export default function MonopolyGame() {
 
   const handleCloseSpecialCard = useCallback(() => {
     setGameState((prev) => {
-      // Complete action after closing the special space modal (may roll again if doubles)
+      // Check if the card moved the player to a new position (advance or go-back effects)
+      const drawnCard = prev.drawnCard
+      const currentPlayer = prev.players[prev.currentPlayerIndex]
+
+      // If player is in jail (sent there by a card), just complete the action
+      if (currentPlayer.inJail) {
+        if (prev.awaitingSpecialSpace) {
+          endTurnTimeoutRef.current = setTimeout(() => {
+            handleActionComplete()
+          }, 500)
+        }
+        return { ...prev, specialSpace: null, awaitingSpecialSpace: false, drawnCard: null }
+      }
+
+      // Check if this was a movement card that could land on a property
+      const isMovementCard = drawnCard && (
+        drawnCard.effect.type === "advance" ||
+        drawnCard.effect.type === "go-back"
+      )
+
+      if (isMovementCard) {
+        // Get the space the player landed on after the card effect
+        const landedSpace = BOARD_SPACES[currentPlayer.position]
+        const isPurchasable = landedSpace.type === "property" ||
+          landedSpace.type === "railroad" ||
+          landedSpace.type === "utility"
+
+        if (isPurchasable) {
+          const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
+          const ownerId = prev.propertyOwners[landedSpace.id]
+          const isOwnProperty = ownerId === prev.currentPlayerIndex
+          const isOtherPlayerProperty = ownerId !== undefined && !isOwnProperty
+          const isMortgaged = prev.mortgagedProperties[landedSpace.id] === true
+
+          if (isUnowned) {
+            // Show property purchase modal
+            setTimeout(() => addLog(`${currentPlayer.name} landed on ${landedSpace.name}`), 0)
+            return {
+              ...prev,
+              specialSpace: null,
+              awaitingSpecialSpace: false,
+              drawnCard: null,
+              selectedSpace: landedSpace,
+              awaitingPropertyDecision: true,
+              isOwnProperty: false,
+              rentPaid: undefined,
+            }
+          } else if (isOtherPlayerProperty && !isMortgaged) {
+            // Calculate and charge rent
+            const updatedPlayers = [...prev.players]
+            let rentAmount: number | undefined = undefined
+
+            if (landedSpace.type === "property" && landedSpace.rent) {
+              const colorGroupSpaces = getSpacesByColorGroup(landedSpace.colorGroup)
+              const ownsAllInGroup = colorGroupSpaces.every(
+                (s) =>
+                  prev.propertyOwners[s.id] === ownerId &&
+                  prev.mortgagedProperties[s.id] !== true
+              )
+              const houseCount = prev.propertyHouses[landedSpace.id] ?? 0
+              rentAmount = calculateRent(landedSpace, houseCount, ownsAllInGroup)
+            } else if (landedSpace.type === "railroad" && landedSpace.rent) {
+              const railroads = BOARD_SPACES.filter(s => s.type === "railroad")
+              const ownedRailroads = railroads.filter(r => prev.propertyOwners[r.id] === ownerId)
+              rentAmount = landedSpace.rent[ownedRailroads.length - 1] || 25
+            } else if (landedSpace.type === "utility") {
+              const utilities = BOARD_SPACES.filter(s => s.type === "utility")
+              const ownedUtilities = utilities.filter(u => prev.propertyOwners[u.id] === ownerId)
+              const multiplier = ownedUtilities.length === 2 ? 10 : 4
+              // Use the last dice roll for utility rent
+              rentAmount = (prev.diceValues[0] + prev.diceValues[1]) * multiplier
+            }
+
+            if (rentAmount !== undefined) {
+              updatedPlayers[prev.currentPlayerIndex].money -= rentAmount
+              updatedPlayers[ownerId!].money += rentAmount
+              const ownerName = prev.players[ownerId!].name
+              setTimeout(() => {
+                addLog(`${currentPlayer.name} landed on ${landedSpace.name}`)
+                addLog(`${currentPlayer.name} paid $${rentAmount} rent to ${ownerName}`)
+              }, 0)
+            }
+
+            // Show property card - handleCloseCard will call handleActionComplete when closed
+            return {
+              ...prev,
+              players: updatedPlayers,
+              specialSpace: null,
+              awaitingSpecialSpace: false,
+              drawnCard: null,
+              selectedSpace: landedSpace,
+              awaitingPropertyDecision: true,
+              isOwnProperty: false,
+              rentPaid: rentAmount,
+            }
+          } else if (isOwnProperty) {
+            // Landing on own property - show card, handleCloseCard will complete action
+            setTimeout(() => addLog(`${currentPlayer.name} landed on ${landedSpace.name} (own property)`), 0)
+
+            return {
+              ...prev,
+              specialSpace: null,
+              awaitingSpecialSpace: false,
+              drawnCard: null,
+              selectedSpace: landedSpace,
+              awaitingPropertyDecision: true,
+              isOwnProperty: true,
+              rentPaid: undefined,
+            }
+          } else if (isMortgaged && isOtherPlayerProperty) {
+            // Mortgaged property owned by another player - no rent, but show card
+            setTimeout(() => addLog(`${currentPlayer.name} landed on ${landedSpace.name} (mortgaged - no rent)`), 0)
+
+            return {
+              ...prev,
+              specialSpace: null,
+              awaitingSpecialSpace: false,
+              drawnCard: null,
+              selectedSpace: landedSpace,
+              awaitingPropertyDecision: true,
+              isOwnProperty: false,
+              rentPaid: undefined,
+            }
+          }
+        }
+      }
+
+      // Default behavior: complete action after closing the special space modal
       if (prev.awaitingSpecialSpace) {
         endTurnTimeoutRef.current = setTimeout(() => {
           handleActionComplete()
         }, 500)
       }
-      return { ...prev, specialSpace: null, awaitingSpecialSpace: false }
+      return { ...prev, specialSpace: null, awaitingSpecialSpace: false, drawnCard: null }
     })
-  }, [handleActionComplete])
+  }, [handleActionComplete, addLog])
 
   const handleBuyProperty = useCallback(() => {
     const space = gameState.selectedSpace
