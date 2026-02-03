@@ -96,7 +96,7 @@ test.describe('Game End and Victory', () => {
 
     // Victory modal should appear since Alice went bankrupt (rent > money)
     await expect(page.getByText('Victory!')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Bob')).toBeVisible();
+    await expect(page.getByText('Bob wins!')).toBeVisible();
     await expect(page.getByText('San Francisco Tycoon')).toBeVisible();
   });
 
@@ -112,13 +112,13 @@ test.describe('Game End and Victory', () => {
         { propertyId: 27, ownerId: 0 },
         { propertyId: 29, ownerId: 0 },
       ],
-      // Loser rolls and lands on Winner's property
-      diceSequence: [[1, 1], [1, 1]],
+      // Winner rolls non-doubles (1+2=3), then Loser rolls (1+1=2) to land on Pacific Heights
+      diceSequence: [[1, 2], [1, 1]],
     };
 
     await startGameWithConfig(page, config);
 
-    // Winner's turn first - just roll and close
+    // Winner's turn first - just roll and close (non-doubles so turn ends)
     let rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -126,7 +126,7 @@ test.describe('Game End and Victory', () => {
     await closeAnyModal(page);
     await page.waitForTimeout(1000);
 
-    // Now Loser's turn - rolls doubles to land on Winner's property
+    // Now Loser's turn - rolls to land on Winner's property
     rollBtn = await waitForRollButton(page);
     await rollBtn.click();
     await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
@@ -139,7 +139,7 @@ test.describe('Game End and Victory', () => {
 
     // Check for winner stats
     await expect(page.getByText('Cash')).toBeVisible();
-    await expect(page.getByText('Properties')).toBeVisible();
+    await expect(page.getByText('Properties', { exact: true })).toBeVisible();
     await expect(page.getByText('Net Worth')).toBeVisible();
   });
 
@@ -170,12 +170,12 @@ test.describe('Game End and Victory', () => {
     await expect(page.getByText('Victory!')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Final Standings')).toBeVisible();
 
-    // Both players should be listed
-    await expect(page.getByText('Alice')).toBeVisible();
-    await expect(page.getByText('Bob')).toBeVisible();
+    // Both players should be listed in the final standings
+    await expect(page.getByRole('heading', { name: 'Alice' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Bob' }).first()).toBeVisible();
 
     // Bankrupt player should show as bankrupt
-    await expect(page.getByText('Bankrupt')).toBeVisible();
+    await expect(page.getByText('Bankrupt').first()).toBeVisible();
   });
 
   test('should allow starting new game from victory modal', async ({ page }) => {
@@ -272,6 +272,6 @@ test.describe('Bankruptcy Detection', () => {
 
     // Victory modal should appear for RichPlayer
     await expect(page.getByText('Victory!')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('RichPlayer')).toBeVisible();
+    await expect(page.getByText('RichPlayer wins!')).toBeVisible();
   });
 });
