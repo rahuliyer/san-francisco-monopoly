@@ -1180,22 +1180,20 @@ export default function MonopolyGame() {
     currentPlayer.money >= selectedSpaceUnmortgageCost
 
   return (
-    <main className="vintage-paper h-screen overflow-hidden p-2 sm:p-4">
-      <div className="mx-auto flex h-full max-w-7xl flex-col lg:flex-row lg:items-start lg:gap-4">
+    <main className="vintage-paper h-screen overflow-auto p-2 sm:p-4">
+      <div className="mx-auto flex h-full max-w-7xl flex-col items-center gap-4 lg:flex-row lg:items-start lg:justify-center">
         {/* Center - Game Board */}
-        <div className="flex flex-1 items-center justify-center lg:flex-none">
-          <div className="board-container rounded-lg golden-glow">
-            <GameBoard
-              players={gameState.players}
-              onSpaceClick={handleSpaceClick}
-              propertyOwners={gameState.propertyOwners}
-              propertyHouses={gameState.propertyHouses}
-            />
-          </div>
+        <div className="board-container flex-shrink-0 rounded-lg golden-glow">
+          <GameBoard
+            players={gameState.players}
+            onSpaceClick={handleSpaceClick}
+            propertyOwners={gameState.propertyOwners}
+            propertyHouses={gameState.propertyHouses}
+          />
         </div>
 
         {/* Side Panel - Controls and Player Info */}
-        <div className="flex flex-col gap-3 lg:h-full lg:w-80 lg:flex-shrink-0 overflow-auto py-2">
+        <div className="flex w-full flex-col gap-3 lg:h-full lg:max-h-screen lg:w-80 lg:flex-shrink-0 lg:overflow-auto lg:py-2">
           {/* Game Controls */}
           <GameControls
             diceValues={gameState.diceValues}
