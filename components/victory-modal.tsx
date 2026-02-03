@@ -82,7 +82,7 @@ export function VictoryModal({
           <div className="mb-6 flex flex-col items-center">
             <div className="mb-3 rounded-full bg-gradient-to-br from-[#d4af37]/20 to-[#d4af37]/5 p-4">
               <PlayerToken3D
-                icon={winner.token}
+                sprite={winner.token}
                 color={winner.color}
                 name={winner.name}
                 size="lg"
@@ -139,7 +139,7 @@ export function VictoryModal({
                     {index + 1}.
                   </span>
                   <PlayerToken3D
-                    icon={player.token}
+                    sprite={player.token}
                     color={player.color}
                     name={player.name}
                     size="sm"
