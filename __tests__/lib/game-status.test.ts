@@ -5,7 +5,7 @@ const createPlayer = (overrides: Partial<Player> = {}): Player => ({
   id: 0,
   name: 'Player',
   color: '#C4451A',
-  token: '🚃',
+  token: '/images/tokens/crab.png',
   money: 1500,
   position: 0,
   properties: [],

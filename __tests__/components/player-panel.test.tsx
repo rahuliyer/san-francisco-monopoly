@@ -7,7 +7,7 @@ describe('PlayerPanel component', () => {
     id: 0,
     name: 'Alice',
     color: '#C4451A',
-    token: '🚃',
+    token: '/images/tokens/crab.png',
     money: 1500,
     position: 0,
     properties: [],
@@ -53,12 +53,13 @@ describe('PlayerPanel component', () => {
   it('should display player token', () => {
     render(
       <PlayerPanel
-        player={createMockPlayer({ token: '🦀' })}
+        player={createMockPlayer({ token: '/images/tokens/golden-gate.png' })}
         isCurrentTurn={false}
         propertyOwners={{}}
       />
     )
-    expect(screen.getByText('🦀')).toBeInTheDocument()
+    // Token is now an image with alt text using player name
+    expect(screen.getByAltText('Alice')).toBeInTheDocument()
   })
 
   it('should show "Your Turn" indicator when it is current turn', () => {

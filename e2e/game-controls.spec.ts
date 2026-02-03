@@ -118,7 +118,7 @@ test.describe('Jail Controls', () => {
 
       const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
       if (await rollForDoubles.isVisible({ timeout: 500 }).catch(() => false)) {
-        await expect(page.getByText('🔒 In Alcatraz')).toBeVisible();
+        await expect(page.getByText('In Alcatraz')).toBeVisible();
         await expect(rollForDoubles).toBeVisible();
         await expect(page.getByRole('button', { name: 'Pay $50 to Leave' })).toBeVisible();
         return;

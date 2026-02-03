@@ -145,7 +145,7 @@ test.describe('Jail Mechanics', () => {
         await payToLeave.click();
 
         // Jail status should be cleared
-        await expect(page.getByText('🔒 In Alcatraz')).not.toBeVisible({ timeout: 3000 });
+        await expect(page.getByText('In Alcatraz')).not.toBeVisible({ timeout: 3000 });
 
         // Normal roll button should appear
         await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible();

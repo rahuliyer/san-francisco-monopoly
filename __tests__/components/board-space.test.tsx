@@ -5,9 +5,9 @@ import { BOARD_SPACES, Player, Space } from '@/lib/game-data'
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ fill, ...props }: { alt: string; src: string; fill?: boolean }) => {
+  default: ({ fill, priority, ...props }: { alt: string; src: string; fill?: boolean; priority?: boolean; width?: number; height?: number }) => {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} data-fill={fill ? 'true' : undefined} />
+    return <img {...props} data-fill={fill ? 'true' : undefined} data-priority={priority ? 'true' : undefined} />
   },
 }))
 
@@ -18,7 +18,7 @@ describe('BoardSpace component', () => {
     id: 0,
     name: 'Alice',
     color: '#C4451A',
-    token: '🚃',
+    token: '/images/tokens/crab.png',
     money: 1500,
     position: 0,
     properties: [],
@@ -119,7 +119,7 @@ describe('BoardSpace component', () => {
   describe('Player tokens', () => {
     it('should display player token when player is on space', () => {
       const playerOnSpace = { ...mockPlayer, position: propertySpace.id }
-      
+
       render(
         <BoardSpace
           space={propertySpace}
@@ -127,13 +127,14 @@ describe('BoardSpace component', () => {
           position="bottom"
         />
       )
-      
-      expect(screen.getByText('🚃')).toBeInTheDocument()
+
+      // Token is now an image, check for the alt text which uses player name
+      expect(screen.getByAltText('Alice')).toBeInTheDocument()
     })
 
     it('should not display player token when player is not on space', () => {
       const playerNotOnSpace = { ...mockPlayer, position: 5 }
-      
+
       render(
         <BoardSpace
           space={propertySpace}
@@ -141,14 +142,14 @@ describe('BoardSpace component', () => {
           position="bottom"
         />
       )
-      
-      expect(screen.queryByText('🚃')).not.toBeInTheDocument()
+
+      expect(screen.queryByAltText('Alice')).not.toBeInTheDocument()
     })
 
     it('should display multiple player tokens', () => {
-      const player1 = { ...mockPlayer, id: 0, position: propertySpace.id, token: '🚃' }
-      const player2 = { ...mockPlayer, id: 1, position: propertySpace.id, token: '🦀' }
-      
+      const player1 = { ...mockPlayer, id: 0, name: 'Alice', position: propertySpace.id, token: '/images/tokens/crab.png' }
+      const player2 = { ...mockPlayer, id: 1, name: 'Bob', position: propertySpace.id, token: '/images/tokens/golden-gate.png' }
+
       render(
         <BoardSpace
           space={propertySpace}
@@ -156,9 +157,9 @@ describe('BoardSpace component', () => {
           position="bottom"
         />
       )
-      
-      expect(screen.getByText('🚃')).toBeInTheDocument()
-      expect(screen.getByText('🦀')).toBeInTheDocument()
+
+      expect(screen.getByAltText('Alice')).toBeInTheDocument()
+      expect(screen.getByAltText('Bob')).toBeInTheDocument()
     })
   })
 

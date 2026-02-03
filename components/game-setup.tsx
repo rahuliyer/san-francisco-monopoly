@@ -113,7 +113,7 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
                       title={token.name}
                     >
                       <PlayerToken3D
-                        icon={token.icon}
+                        sprite={token.sprite}
                         color={token.color}
                         name={token.name}
                         size="md"

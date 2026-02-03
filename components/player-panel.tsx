@@ -29,7 +29,7 @@ export function PlayerPanel({ player, isCurrentTurn, propertyOwners, onPropertie
     >
       <div className="flex items-center gap-3">
         <PlayerToken3D
-          icon={player.token}
+          sprite={player.token}
           color={player.color}
           name={player.name}
           size="md"

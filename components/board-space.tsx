@@ -129,7 +129,7 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
           {playersOnSpace.map((player) => (
             <PlayerToken3D
               key={player.id}
-              icon={player.token}
+              sprite={player.token}
               color={player.color}
               name={player.name}
               size="xs"

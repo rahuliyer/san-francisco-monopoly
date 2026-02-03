@@ -193,9 +193,9 @@ describe('game-data constants', () => {
       expect(new Set(names).size).toBe(names.length)
     })
 
-    it('should have unique icons', () => {
-      const icons = PLAYER_TOKENS.map(t => t.icon)
-      expect(new Set(icons).size).toBe(icons.length)
+    it('should have unique sprites', () => {
+      const sprites = PLAYER_TOKENS.map(t => t.sprite)
+      expect(new Set(sprites).size).toBe(sprites.length)
     })
 
     it('should have unique colors', () => {
@@ -236,7 +236,7 @@ describe('createPlayer', () => {
     PLAYER_TOKENS.forEach((token, index) => {
       const player = createPlayer(index, `Player ${index}`, index)
       expect(player.color).toBe(token.color)
-      expect(player.token).toBe(token.icon)
+      expect(player.token).toBe(token.sprite)
     })
   })
 

@@ -225,7 +225,7 @@ export function PropertyCard({
             <div className="mt-3 rounded bg-[#2c6e4f]/10 border border-[#2c6e4f]/30 p-3 text-center">
               <div className="mb-2 flex items-center justify-center gap-2">
                 <PlayerToken3D
-                  icon={owner.token}
+                  sprite={owner.token}
                   color={owner.color}
                   name={owner.name}
                   size="sm"
@@ -245,7 +245,7 @@ export function PropertyCard({
             <div className="mt-3 rounded bg-[#c94c4c]/10 border border-[#c94c4c]/30 p-3 text-center">
               <div className="mb-2 flex items-center justify-center gap-2">
                 <PlayerToken3D
-                  icon={owner.token}
+                  sprite={owner.token}
                   color={owner.color}
                   name={owner.name}
                   size="sm"
@@ -264,7 +264,7 @@ export function PropertyCard({
           {owner && !isOwnProperty && rentPaid === undefined && (
             <div className="mt-3 flex items-center gap-2 rounded bg-[#f5efe3] border border-[#d4af37]/30 p-2">
               <PlayerToken3D
-                icon={owner.token}
+                sprite={owner.token}
                 color={owner.color}
                 name={owner.name}
                 size="sm"

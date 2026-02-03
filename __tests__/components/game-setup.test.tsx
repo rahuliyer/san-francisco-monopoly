@@ -69,9 +69,9 @@ describe('GameSetup component', () => {
 
   it('should render token selection buttons', () => {
     render(<GameSetup onStartGame={mockOnStartGame} />)
-    // Each player row should have 4 token buttons
+    // Each player row should have 4 token buttons with title attributes
     const tokenButtons = screen.getAllByRole('button').filter(
-      btn => btn.textContent && PLAYER_TOKENS.some(t => t.icon === btn.textContent)
+      btn => PLAYER_TOKENS.some(t => btn.getAttribute('title') === t.name)
     )
     // 2 players × 4 tokens = 8 token buttons displayed
     expect(tokenButtons.length).toBeGreaterThanOrEqual(8)
@@ -127,14 +127,14 @@ describe('GameSetup component', () => {
 
   it('should disable already selected tokens for other players', async () => {
     render(<GameSetup onStartGame={mockOnStartGame} />)
-    
+
     // Player 1 has token 0, Player 2 has token 1 by default
     // When selecting tokens for player 2, token 0 should be disabled
     const allButtons = screen.getAllByRole('button')
     const tokenButtons = allButtons.filter(
-      btn => btn.textContent && PLAYER_TOKENS.some(t => t.icon === btn.textContent)
+      btn => PLAYER_TOKENS.some(t => btn.getAttribute('title') === t.name)
     )
-    
+
     // Some token buttons should be disabled (already taken)
     const disabledButtons = tokenButtons.filter(btn => btn.hasAttribute('disabled'))
     expect(disabledButtons.length).toBeGreaterThan(0)
