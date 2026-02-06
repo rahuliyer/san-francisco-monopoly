@@ -1540,7 +1540,7 @@ export default function MonopolyGame() {
         </div>
 
         {/* Side panel: Player Panels + Game Controls */}
-        <div className="flex w-full min-h-0 flex-1 flex-col gap-2 sm:gap-3 overflow-y-auto lg:max-w-sm">
+        <div className="flex w-full min-h-0 flex-shrink flex-col gap-2 sm:gap-3 overflow-y-auto lg:flex-1 lg:max-w-sm">
           {/* Player Panels */}
           <div className={`grid w-full grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-1 ${playerPanelColumnsClass}`}>
             {gameState.players.map((player) => (

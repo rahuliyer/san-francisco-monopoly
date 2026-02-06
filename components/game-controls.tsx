@@ -37,7 +37,7 @@ export function GameControls({
   const isLastJailTurn = isInJail && jailTurns >= 2
 
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-4 shadow-md border-2 border-[#c4b897]">
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 rounded-lg bg-gradient-to-br from-[#faf6ee] to-[#f5efe3] p-4 shadow-md border-2 border-[#c4b897]">
       <p className="text-sm font-serif font-medium text-[#5c4a1f]">
         {gameOver ? "Game Over" : `${currentPlayerName}'s Turn`}
       </p>
