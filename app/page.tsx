@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { SplashScreen } from "@/components/splash-screen"
 import { GameSetup } from "@/components/game-setup"
 import { GameBoard } from "@/components/game-board"
+import { ScaledBoard } from "@/components/scaled-board"
 import { PlayerPanel } from "@/components/player-panel"
 import { GameControls } from "@/components/game-controls"
 import { PropertyCard } from "@/components/property-card"
@@ -1524,47 +1525,52 @@ export default function MonopolyGame() {
         : "md:grid-cols-4"
 
   return (
-    <main className="vintage-paper min-h-screen p-4">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6">
-        {/* Center - Game Board */}
-        <div className="overflow-auto rounded-lg golden-glow">
-          <GameBoard
-            players={gameState.players}
-            onSpaceClick={handleSpaceClick}
-            propertyOwners={gameState.propertyOwners}
-            propertyHouses={gameState.propertyHouses}
+    <main className="vintage-paper h-dvh overflow-hidden p-2 sm:p-3 lg:p-4">
+      <div className="mx-auto flex h-full max-w-7xl flex-col lg:flex-row items-center lg:items-start gap-2 sm:gap-3 lg:gap-4">
+        {/* Game Board - scales to fit available space */}
+        <div className="flex max-h-[55dvh] w-full flex-shrink-0 items-center justify-center lg:h-full lg:max-h-full lg:w-auto">
+          <ScaledBoard nativeSize={750} className="rounded-lg golden-glow overflow-hidden">
+            <GameBoard
+              players={gameState.players}
+              onSpaceClick={handleSpaceClick}
+              propertyOwners={gameState.propertyOwners}
+              propertyHouses={gameState.propertyHouses}
+            />
+          </ScaledBoard>
+        </div>
+
+        {/* Side panel: Player Panels + Game Controls */}
+        <div className="flex w-full min-h-0 flex-1 flex-col gap-2 sm:gap-3 overflow-y-auto lg:max-w-sm">
+          {/* Player Panels */}
+          <div className={`grid w-full grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-1 ${playerPanelColumnsClass}`}>
+            {gameState.players.map((player) => (
+              <PlayerPanel
+                key={player.id}
+                player={player}
+                isCurrentTurn={player.id === currentPlayer.id && !player.isBankrupt && !gameState.gameOver}
+                propertyOwners={gameState.propertyOwners}
+                onPropertiesClick={() => handleViewPlayerProperties(player)}
+              />
+            ))}
+          </div>
+
+          {/* Game Controls */}
+          <GameControls
+            diceValues={gameState.diceValues}
+            rolling={gameState.rolling}
+            hasRolled={gameState.hasRolled}
+            onRoll={handleRoll}
+            currentPlayerName={currentPlayer.name}
+            isInJail={currentPlayer.inJail}
+            jailTurns={currentPlayer.jailTurns}
+            onPayJailFee={handlePayJailFee}
+            canAffordJailFee={currentPlayer.money >= JAIL_FEE}
+            onTrade={handleOpenTrade}
+            tradeDisabled={tradeDisabled}
+            gameOver={gameState.gameOver}
+            winnerName={winner?.name ?? undefined}
           />
         </div>
-
-        {/* Player Panels - Below the board */}
-        <div className={`grid w-full max-w-4xl grid-cols-2 gap-3 ${playerPanelColumnsClass}`}>
-          {gameState.players.map((player) => (
-            <PlayerPanel
-              key={player.id}
-              player={player}
-              isCurrentTurn={player.id === currentPlayer.id && !player.isBankrupt && !gameState.gameOver}
-              propertyOwners={gameState.propertyOwners}
-              onPropertiesClick={() => handleViewPlayerProperties(player)}
-            />
-          ))}
-        </div>
-
-        {/* Game Controls - Below the player panels */}
-        <GameControls
-          diceValues={gameState.diceValues}
-          rolling={gameState.rolling}
-          hasRolled={gameState.hasRolled}
-          onRoll={handleRoll}
-          currentPlayerName={currentPlayer.name}
-          isInJail={currentPlayer.inJail}
-          jailTurns={currentPlayer.jailTurns}
-          onPayJailFee={handlePayJailFee}
-          canAffordJailFee={currentPlayer.money >= JAIL_FEE}
-          onTrade={handleOpenTrade}
-          tradeDisabled={tradeDisabled}
-          gameOver={gameState.gameOver}
-          winnerName={winner?.name ?? undefined}
-        />
       </div>
 
       {/* Player Properties Modal */}
