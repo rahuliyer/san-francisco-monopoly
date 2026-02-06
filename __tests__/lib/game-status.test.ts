@@ -1,4 +1,4 @@
-import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, calculateLiquidationValue, canPlayerLiquidate, findCreditorForPlayer } from '@/lib/game-status'
+import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, calculateLiquidationValue, canPlayerLiquidate, findCreditorForPlayer } from '@/lib/game-status'
 import { Player } from '@/lib/game-data'
 
 const createPlayer = (overrides: Partial<Player> = {}): Player => ({
@@ -203,5 +203,69 @@ describe('findCreditorForPlayer', () => {
     const player = createPlayer({ id: 0, position: 1 })
     const players = [player, createPlayer({ id: 1 })]
     expect(findCreditorForPlayer(player, players, {}, {})).toBeNull()
+  })
+})
+
+describe('resolveSingleBankruptcy', () => {
+  it('only bankrupts the targeted player, not other negative-money players', () => {
+    const players: Player[] = [
+      createPlayer({ id: 0, name: 'Alice', money: -50, properties: [1] }),
+      createPlayer({ id: 1, name: 'Bob', money: -30, properties: [3] }),
+      createPlayer({ id: 2, name: 'Charlie', money: 500 }),
+    ]
+    const propertyOwners = { 1: 0, 3: 1 }
+
+    const result = resolveSingleBankruptcy(0, players, propertyOwners, {}, {})
+
+    expect(result.hasChanges).toBe(true)
+    expect(result.newlyBankruptIds).toEqual([0])
+    // Alice should be bankrupt
+    expect(result.players[0].isBankrupt).toBe(true)
+    expect(result.players[0].money).toBe(0)
+    expect(result.players[0].properties).toEqual([])
+    // Bob should NOT be affected - still negative but not bankrupt
+    expect(result.players[1].isBankrupt).toBe(false)
+    expect(result.players[1].money).toBe(-30)
+    expect(result.players[1].properties).toEqual([3])
+    // Alice's property removed, Bob's property remains
+    expect(result.propertyOwners[1]).toBeUndefined()
+    expect(result.propertyOwners[3]).toBe(1)
+  })
+
+  it('returns no changes for a player who is not negative', () => {
+    const players: Player[] = [
+      createPlayer({ id: 0, money: 100 }),
+    ]
+    const result = resolveSingleBankruptcy(0, players, {}, {}, {})
+    expect(result.hasChanges).toBe(false)
+  })
+
+  it('returns no changes for an already bankrupt player', () => {
+    const players: Player[] = [
+      createPlayer({ id: 0, money: -50, isBankrupt: true }),
+    ]
+    const result = resolveSingleBankruptcy(0, players, {}, {}, {})
+    expect(result.hasChanges).toBe(false)
+  })
+
+  it('clears mortgaged properties and houses for the bankrupt player only', () => {
+    const players: Player[] = [
+      createPlayer({ id: 0, money: -50, properties: [1] }),
+      createPlayer({ id: 1, money: -20, properties: [3] }),
+    ]
+    const propertyOwners = { 1: 0, 3: 1 }
+    const mortgagedProperties = { 1: true, 3: true }
+    const propertyHouses = { 1: 2, 3: 3 }
+
+    const result = resolveSingleBankruptcy(0, players, propertyOwners, mortgagedProperties, propertyHouses)
+
+    // Alice's assets removed
+    expect(result.propertyOwners[1]).toBeUndefined()
+    expect(result.mortgagedProperties[1]).toBeUndefined()
+    expect(result.propertyHouses[1]).toBeUndefined()
+    // Bob's assets untouched
+    expect(result.propertyOwners[3]).toBe(1)
+    expect(result.mortgagedProperties[3]).toBe(true)
+    expect(result.propertyHouses[3]).toBe(3)
   })
 })

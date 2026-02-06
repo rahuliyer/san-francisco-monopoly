@@ -84,6 +84,65 @@ interface BankruptcyResolution {
   hasChanges: boolean
 }
 
+/**
+ * Resolves bankruptcy for a single specific player.
+ * Unlike resolveBankruptcies, this only affects the targeted player,
+ * leaving other negative-money players untouched so they can get
+ * their own liquidation turn.
+ */
+export function resolveSingleBankruptcy(
+  playerId: number,
+  players: Player[],
+  propertyOwners: Record<number, number>,
+  mortgagedProperties: Record<number, boolean>,
+  propertyHouses: Record<number, number>
+): BankruptcyResolution {
+  const player = players.find((p) => p.id === playerId)
+  if (!player || player.isBankrupt || player.money >= 0) {
+    return {
+      players,
+      propertyOwners,
+      mortgagedProperties,
+      propertyHouses,
+      newlyBankruptIds: [],
+      hasChanges: false,
+    }
+  }
+
+  const updatedPlayers = players.map((p) => {
+    if (p.id !== playerId) return p
+    return {
+      ...p,
+      isBankrupt: true,
+      money: 0,
+      inJail: false,
+      jailTurns: 0,
+      properties: [],
+    }
+  })
+
+  const updatedPropertyOwners = { ...propertyOwners }
+  const updatedMortgagedProperties = { ...mortgagedProperties }
+  const updatedPropertyHouses = { ...propertyHouses }
+
+  Object.entries(propertyOwners).forEach(([spaceId, ownerId]) => {
+    if (ownerId !== playerId) return
+    const numericSpaceId = Number(spaceId)
+    delete updatedPropertyOwners[numericSpaceId]
+    delete updatedMortgagedProperties[numericSpaceId]
+    delete updatedPropertyHouses[numericSpaceId]
+  })
+
+  return {
+    players: updatedPlayers,
+    propertyOwners: updatedPropertyOwners,
+    mortgagedProperties: updatedMortgagedProperties,
+    propertyHouses: updatedPropertyHouses,
+    newlyBankruptIds: [playerId],
+    hasChanges: true,
+  }
+}
+
 export function resolveBankruptcies(
   players: Player[],
   propertyOwners: Record<number, number>,

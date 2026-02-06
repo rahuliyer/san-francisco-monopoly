@@ -22,7 +22,7 @@ import {
 } from "@/lib/game-data"
 import { useGameStore } from "@/components/game-store-context"
 import { type GameState, getRandomInitialDice } from "@/lib/game-store"
-import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
+import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
 import { LiquidationModal } from "@/components/liquidation-modal"
@@ -1216,8 +1216,9 @@ export default function MonopolyGame() {
       if (prev.liquidatingPlayerId === null) return prev
       const playerId = prev.liquidatingPlayerId
 
-      // Resolve bankruptcy for this player
-      const resolution = resolveBankruptcies(
+      // Resolve bankruptcy for ONLY the liquidating player
+      const resolution = resolveSingleBankruptcy(
+        playerId,
         prev.players,
         prev.propertyOwners,
         prev.mortgagedProperties,
@@ -1227,12 +1228,10 @@ export default function MonopolyGame() {
       const nextPlayers = resolution.hasChanges ? resolution.players : prev.players
       const winnerId = getWinnerId(nextPlayers)
 
-      resolution.newlyBankruptIds.forEach((id) => {
-        const playerName = prev.players.find((p) => p.id === id)?.name
-        if (playerName) {
-          setTimeout(() => addLog(`${playerName} declared bankruptcy and is out of the game.`), 0)
-        }
-      })
+      const playerName = prev.players.find((p) => p.id === playerId)?.name
+      if (playerName) {
+        setTimeout(() => addLog(`${playerName} declared bankruptcy and is out of the game.`), 0)
+      }
 
       if (winnerId !== null) {
         const winnerName = nextPlayers.find((p) => p.id === winnerId)?.name
@@ -1348,8 +1347,9 @@ export default function MonopolyGame() {
         addLog(`${player.name} is in debt and must liquidate assets!`)
         return // Handle one player at a time
       } else {
-        // No assets to liquidate - go bankrupt immediately
-        const resolution = resolveBankruptcies(
+        // No assets to liquidate - go bankrupt immediately (only this player)
+        const resolution = resolveSingleBankruptcy(
+          player.id,
           gameState.players,
           gameState.propertyOwners,
           gameState.mortgagedProperties,
@@ -1370,12 +1370,10 @@ export default function MonopolyGame() {
             winnerId,
           }))
 
-          resolution.newlyBankruptIds.forEach((playerId) => {
-            const playerName = gameState.players.find((p) => p.id === playerId)?.name
-            if (playerName) {
-              addLog(`${playerName} went bankrupt and is out of the game.`)
-            }
-          })
+          const playerName = gameState.players.find((p) => p.id === player.id)?.name
+          if (playerName) {
+            addLog(`${playerName} went bankrupt and is out of the game.`)
+          }
 
           if (winnerId !== null) {
             const winnerName = nextPlayers.find((p) => p.id === winnerId)?.name
