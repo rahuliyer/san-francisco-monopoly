@@ -29,6 +29,8 @@ export interface GameState {
   isOwnProperty: boolean
   rentPaid: number | undefined
   viewingPropertiesForPlayer: Player | null
+  liquidatingPlayerId: number | null
+  liquidationCreditorId: number | null
   gameOver: boolean
   winnerId: number | null
 }
@@ -62,6 +64,8 @@ export function createInitialGameState(): GameState {
     isOwnProperty: false,
     rentPaid: undefined,
     viewingPropertiesForPlayer: null,
+    liquidatingPlayerId: null,
+    liquidationCreditorId: null,
     gameOver: false,
     winnerId: null,
   }

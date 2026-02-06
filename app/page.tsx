@@ -22,9 +22,10 @@ import {
 } from "@/lib/game-data"
 import { useGameStore } from "@/components/game-store-context"
 import { type GameState, getRandomInitialDice } from "@/lib/game-store"
-import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies } from "@/lib/game-status"
+import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
+import { LiquidationModal } from "@/components/liquidation-modal"
 
 const {
   DICE_ANIMATION_DURATION,
@@ -1098,10 +1099,160 @@ export default function MonopolyGame() {
       isOwnProperty: false,
       rentPaid: undefined,
       viewingPropertiesForPlayer: null,
+      liquidatingPlayerId: null,
+      liquidationCreditorId: null,
       gameOver: false,
       winnerId: null,
     }))
   }, [])
+
+  // === Liquidation handlers ===
+
+  const handleLiquidationSellHouse = useCallback((spaceId: number) => {
+    setGameState((prev) => {
+      if (prev.liquidatingPlayerId === null) return prev
+      const playerId = prev.liquidatingPlayerId
+      const space = BOARD_SPACES[spaceId]
+      if (!space || space.type !== "property" || !space.houseCost) return prev
+
+      const ownerId = prev.propertyOwners[spaceId]
+      if (ownerId !== playerId) return prev
+
+      const currentHouses = prev.propertyHouses[spaceId] ?? 0
+      if (currentHouses <= 0) return prev
+
+      // Enforce even selling: can only sell from properties with the max houses in the group
+      const groupSpaces = BOARD_SPACES.filter(
+        (s) => s.colorGroup === space.colorGroup && s.type === "property"
+      )
+      const maxInGroup = Math.max(
+        ...groupSpaces
+          .filter((s) => prev.propertyOwners[s.id] === playerId)
+          .map((s) => prev.propertyHouses[s.id] ?? 0)
+      )
+      if (currentHouses < maxInGroup) return prev
+
+      const sellValue = Math.floor(space.houseCost / 2)
+      const updatedPlayers = prev.players.map((p) =>
+        p.id === playerId ? { ...p, money: p.money + sellValue } : p
+      )
+
+      const updatedHouses = { ...prev.propertyHouses }
+      const newHouseCount = currentHouses - 1
+      if (newHouseCount === 0) {
+        delete updatedHouses[spaceId]
+      } else {
+        updatedHouses[spaceId] = newHouseCount
+      }
+
+      const buildingLabel = currentHouses >= MAX_HOUSES ? "hotel" : "house"
+      setTimeout(() => addLog(`${prev.players.find((p) => p.id === playerId)?.name} sold a ${buildingLabel} on ${space.name} for $${sellValue}`), 0)
+
+      // Check if player is now solvent
+      const newMoney = updatedPlayers.find((p) => p.id === playerId)?.money ?? 0
+      if (newMoney >= 0) {
+        setTimeout(() => addLog(`${prev.players.find((p) => p.id === playerId)?.name} raised enough funds!`), 0)
+        return {
+          ...prev,
+          players: updatedPlayers,
+          propertyHouses: updatedHouses,
+          liquidatingPlayerId: null,
+          liquidationCreditorId: null,
+        }
+      }
+
+      return {
+        ...prev,
+        players: updatedPlayers,
+        propertyHouses: updatedHouses,
+      }
+    })
+  }, [addLog])
+
+  const handleLiquidationMortgage = useCallback((spaceId: number) => {
+    setGameState((prev) => {
+      if (prev.liquidatingPlayerId === null) return prev
+      const playerId = prev.liquidatingPlayerId
+      const space = BOARD_SPACES[spaceId]
+      if (!space || space.mortgage === undefined) return prev
+
+      const ownerId = prev.propertyOwners[spaceId]
+      if (ownerId !== playerId) return prev
+      if (prev.mortgagedProperties[spaceId]) return prev
+
+      // Cannot mortgage a property that has houses - must sell houses first
+      const houses = prev.propertyHouses[spaceId] ?? 0
+      if (houses > 0) return prev
+
+      const updatedPlayers = prev.players.map((p) =>
+        p.id === playerId ? { ...p, money: p.money + space.mortgage! } : p
+      )
+
+      setTimeout(() => addLog(`${prev.players.find((p) => p.id === playerId)?.name} mortgaged ${space.name} for $${space.mortgage}`), 0)
+
+      // Check if player is now solvent
+      const newMoney = updatedPlayers.find((p) => p.id === playerId)?.money ?? 0
+      if (newMoney >= 0) {
+        setTimeout(() => addLog(`${prev.players.find((p) => p.id === playerId)?.name} raised enough funds!`), 0)
+        return {
+          ...prev,
+          players: updatedPlayers,
+          mortgagedProperties: { ...prev.mortgagedProperties, [spaceId]: true },
+          liquidatingPlayerId: null,
+          liquidationCreditorId: null,
+        }
+      }
+
+      return {
+        ...prev,
+        players: updatedPlayers,
+        mortgagedProperties: { ...prev.mortgagedProperties, [spaceId]: true },
+      }
+    })
+  }, [addLog])
+
+  const handleDeclareBankruptcy = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.liquidatingPlayerId === null) return prev
+      const playerId = prev.liquidatingPlayerId
+
+      // Resolve bankruptcy for ONLY the liquidating player
+      const resolution = resolveSingleBankruptcy(
+        playerId,
+        prev.players,
+        prev.propertyOwners,
+        prev.mortgagedProperties,
+        prev.propertyHouses
+      )
+
+      const nextPlayers = resolution.hasChanges ? resolution.players : prev.players
+      const winnerId = getWinnerId(nextPlayers)
+
+      const playerName = prev.players.find((p) => p.id === playerId)?.name
+      if (playerName) {
+        setTimeout(() => addLog(`${playerName} declared bankruptcy and is out of the game.`), 0)
+      }
+
+      if (winnerId !== null) {
+        const winnerName = nextPlayers.find((p) => p.id === winnerId)?.name
+        if (winnerName) {
+          setTimeout(() => addLog(`${winnerName} wins the game!`), 0)
+        }
+      }
+
+      return {
+        ...prev,
+        players: resolution.players,
+        propertyOwners: resolution.propertyOwners,
+        mortgagedProperties: resolution.mortgagedProperties,
+        propertyHouses: resolution.propertyHouses,
+        liquidatingPlayerId: null,
+        liquidationCreditorId: null,
+        gameOver: winnerId !== null,
+        winnerId,
+      }
+    })
+  }, [addLog])
 
   // Handle Escape key to close any open dialog
   useEffect(() => {
@@ -1139,41 +1290,99 @@ export default function MonopolyGame() {
       return
     }
 
-    const resolution = resolveBankruptcies(
-      gameState.players,
-      gameState.propertyOwners,
-      gameState.mortgagedProperties,
-      gameState.propertyHouses
+    // Find players with negative money who are not already bankrupt or in liquidation
+    const playersNeedingResolution = gameState.players.filter(
+      (player) => !player.isBankrupt && player.money < 0
     )
 
-    const nextPlayers = resolution.hasChanges ? resolution.players : gameState.players
-    const winnerId = getWinnerId(nextPlayers)
-
-    if (!resolution.hasChanges && winnerId === gameState.winnerId) {
+    if (playersNeedingResolution.length === 0) {
+      // Check for winner among current players
+      const winnerId = getWinnerId(gameState.players)
+      if (winnerId !== null && winnerId !== gameState.winnerId) {
+        setGameState((prev) => ({
+          ...prev,
+          gameOver: true,
+          winnerId,
+        }))
+        const winnerName = gameState.players.find((player) => player.id === winnerId)?.name
+        if (winnerName) {
+          addLog(`${winnerName} wins the game!`)
+        }
+      }
       return
     }
 
-    setGameState((prev) => ({
-      ...prev,
-      players: resolution.players,
-      propertyOwners: resolution.propertyOwners,
-      mortgagedProperties: resolution.mortgagedProperties,
-      propertyHouses: resolution.propertyHouses,
-      gameOver: winnerId !== null,
-      winnerId,
-    }))
+    // If already in liquidation mode, don't re-trigger
+    if (gameState.liquidatingPlayerId !== null) {
+      return
+    }
 
-    resolution.newlyBankruptIds.forEach((playerId) => {
-      const playerName = gameState.players.find((player) => player.id === playerId)?.name
-      if (playerName) {
-        addLog(`${playerName} went bankrupt and is out of the game.`)
-      }
-    })
+    // Check each player needing resolution
+    for (const player of playersNeedingResolution) {
+      const hasAssets = canPlayerLiquidate(
+        player.id,
+        gameState.propertyOwners,
+        gameState.propertyHouses,
+        gameState.mortgagedProperties
+      )
 
-    if (winnerId !== null) {
-      const winnerName = nextPlayers.find((player) => player.id === winnerId)?.name
-      if (winnerName) {
-        addLog(`${winnerName} wins the game!`)
+      if (hasAssets) {
+        // Enter liquidation mode - player can sell houses/mortgage properties
+        const creditorId = findCreditorForPlayer(
+          player,
+          gameState.players,
+          gameState.propertyOwners,
+          gameState.mortgagedProperties
+        )
+        setGameState((prev) => ({
+          ...prev,
+          liquidatingPlayerId: player.id,
+          liquidationCreditorId: creditorId,
+          // Close any open modals during liquidation
+          selectedSpace: null,
+          awaitingPropertyDecision: false,
+          specialSpace: null,
+          awaitingSpecialSpace: false,
+        }))
+        addLog(`${player.name} is in debt and must liquidate assets!`)
+        return // Handle one player at a time
+      } else {
+        // No assets to liquidate - go bankrupt immediately (only this player)
+        const resolution = resolveSingleBankruptcy(
+          player.id,
+          gameState.players,
+          gameState.propertyOwners,
+          gameState.mortgagedProperties,
+          gameState.propertyHouses
+        )
+
+        if (resolution.hasChanges) {
+          const nextPlayers = resolution.players
+          const winnerId = getWinnerId(nextPlayers)
+
+          setGameState((prev) => ({
+            ...prev,
+            players: resolution.players,
+            propertyOwners: resolution.propertyOwners,
+            mortgagedProperties: resolution.mortgagedProperties,
+            propertyHouses: resolution.propertyHouses,
+            gameOver: winnerId !== null,
+            winnerId,
+          }))
+
+          const playerName = gameState.players.find((p) => p.id === player.id)?.name
+          if (playerName) {
+            addLog(`${playerName} went bankrupt and is out of the game.`)
+          }
+
+          if (winnerId !== null) {
+            const winnerName = nextPlayers.find((p) => p.id === winnerId)?.name
+            if (winnerName) {
+              addLog(`${winnerName} wins the game!`)
+            }
+          }
+        }
+        return
       }
     }
   }, [
@@ -1184,6 +1393,7 @@ export default function MonopolyGame() {
     gameState.mortgagedProperties,
     gameState.propertyHouses,
     gameState.winnerId,
+    gameState.liquidatingPlayerId,
     addLog,
   ])
 
@@ -1286,6 +1496,7 @@ export default function MonopolyGame() {
     gameState.selectedSpace !== null ||
     gameState.specialSpace !== null ||
     gameState.viewingPropertiesForPlayer !== null ||
+    gameState.liquidatingPlayerId !== null ||
     gameState.gameOver ||
     currentPlayer.isBankrupt ||
     activePlayersCount < 2
@@ -1507,6 +1718,26 @@ export default function MonopolyGame() {
           onSubmit={handleTrade}
         />
       )}
+
+      {/* Liquidation Modal */}
+      {gameState.liquidatingPlayerId !== null && (() => {
+        const liquidatingPlayer = gameState.players.find((p) => p.id === gameState.liquidatingPlayerId)
+        const creditorPlayer = gameState.liquidationCreditorId !== null
+          ? gameState.players.find((p) => p.id === gameState.liquidationCreditorId)
+          : null
+        return liquidatingPlayer ? (
+          <LiquidationModal
+            player={liquidatingPlayer}
+            propertyOwners={gameState.propertyOwners}
+            propertyHouses={gameState.propertyHouses}
+            mortgagedProperties={gameState.mortgagedProperties}
+            creditorName={creditorPlayer?.name ?? null}
+            onSellHouse={handleLiquidationSellHouse}
+            onMortgageProperty={handleLiquidationMortgage}
+            onDeclareBankruptcy={handleDeclareBankruptcy}
+          />
+        ) : null
+      })()}
 
       {/* Victory Modal */}
       {gameState.gameOver && winner && (
