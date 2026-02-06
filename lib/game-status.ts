@@ -1,4 +1,79 @@
-import { Player } from "@/lib/game-data"
+import { Player, BOARD_SPACES } from "@/lib/game-data"
+
+/**
+ * Calculates the total liquidation value of a player's assets.
+ * This includes:
+ * - Houses/hotels sold back at half the build cost
+ * - Unmortgaged properties that can be mortgaged for their mortgage value
+ */
+export function calculateLiquidationValue(
+  playerId: number,
+  propertyOwners: Record<number, number>,
+  propertyHouses: Record<number, number>,
+  mortgagedProperties: Record<number, boolean>
+): number {
+  let total = 0
+
+  Object.entries(propertyOwners).forEach(([spaceId, ownerId]) => {
+    if (ownerId !== playerId) return
+    const numericId = Number(spaceId)
+    const space = BOARD_SPACES[numericId]
+    if (!space) return
+
+    // Value from selling houses/hotels (half the build cost)
+    const houses = propertyHouses[numericId] ?? 0
+    if (houses > 0 && space.houseCost) {
+      total += Math.floor(space.houseCost / 2) * houses
+    }
+
+    // Value from mortgaging (only if not already mortgaged)
+    if (!mortgagedProperties[numericId] && space.mortgage) {
+      total += space.mortgage
+    }
+  })
+
+  return total
+}
+
+/**
+ * Checks if a player has any assets they can liquidate (sell houses or mortgage properties).
+ */
+export function canPlayerLiquidate(
+  playerId: number,
+  propertyOwners: Record<number, number>,
+  propertyHouses: Record<number, number>,
+  mortgagedProperties: Record<number, boolean>
+): boolean {
+  return calculateLiquidationValue(playerId, propertyOwners, propertyHouses, mortgagedProperties) > 0
+}
+
+/**
+ * Determines the creditor for a player who went negative.
+ * Returns the player ID who caused the debt (rent), or null if it was the bank (tax, card, etc.).
+ * This looks at property owners on the player's current position.
+ */
+export function findCreditorForPlayer(
+  player: Player,
+  players: Player[],
+  propertyOwners: Record<number, number>,
+  mortgagedProperties: Record<number, boolean>
+): number | null {
+  const space = BOARD_SPACES[player.position]
+  if (!space) return null
+
+  const isPurchasable = space.type === "property" || space.type === "railroad" || space.type === "utility"
+  if (!isPurchasable) return null
+
+  const ownerId = propertyOwners[space.id]
+  if (ownerId === undefined || ownerId === player.id) return null
+  if (mortgagedProperties[space.id]) return null
+
+  // Verify the owner is an active player
+  const owner = players.find((p) => p.id === ownerId)
+  if (!owner || owner.isBankrupt) return null
+
+  return ownerId
+}
 
 interface BankruptcyResolution {
   players: Player[]

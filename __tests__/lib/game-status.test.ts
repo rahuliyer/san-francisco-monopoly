@@ -1,4 +1,4 @@
-import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies } from '@/lib/game-status'
+import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, calculateLiquidationValue, canPlayerLiquidate, findCreditorForPlayer } from '@/lib/game-status'
 import { Player } from '@/lib/game-data'
 
 const createPlayer = (overrides: Partial<Player> = {}): Player => ({
@@ -90,5 +90,118 @@ describe('getNextActivePlayerIndex', () => {
     ]
 
     expect(getNextActivePlayerIndex(players, 0)).toBe(0)
+  })
+})
+
+describe('calculateLiquidationValue', () => {
+  it('returns 0 for a player with no properties', () => {
+    const result = calculateLiquidationValue(0, {}, {}, {})
+    expect(result).toBe(0)
+  })
+
+  it('includes mortgage value for unmortgaged properties', () => {
+    // Space 1 (Tenderloin) has mortgage value 30
+    const propertyOwners = { 1: 0 }
+    const result = calculateLiquidationValue(0, propertyOwners, {}, {})
+    expect(result).toBe(30)
+  })
+
+  it('does not include mortgage value for already-mortgaged properties', () => {
+    const propertyOwners = { 1: 0 }
+    const mortgagedProperties = { 1: true }
+    const result = calculateLiquidationValue(0, propertyOwners, {}, mortgagedProperties)
+    expect(result).toBe(0)
+  })
+
+  it('includes house sell value at half the build cost', () => {
+    // Space 1 (Tenderloin) has houseCost 50, so sell value = 25 per house
+    // 2 houses = $50 sell value + $30 mortgage value = $80
+    const propertyOwners = { 1: 0 }
+    const propertyHouses = { 1: 2 }
+    const result = calculateLiquidationValue(0, propertyOwners, propertyHouses, {})
+    expect(result).toBe(80)
+  })
+
+  it('includes hotel sell value (5 buildings at half build cost)', () => {
+    // Space 1 (Tenderloin) has houseCost 50, 5 buildings = $125 sell + $30 mortgage = $155
+    const propertyOwners = { 1: 0 }
+    const propertyHouses = { 1: 5 }
+    const result = calculateLiquidationValue(0, propertyOwners, propertyHouses, {})
+    expect(result).toBe(155)
+  })
+
+  it('only counts properties owned by the specified player', () => {
+    const propertyOwners = { 1: 0, 3: 1 }
+    // Player 0 owns space 1 (mortgage 30), player 1 owns space 3
+    const result = calculateLiquidationValue(0, propertyOwners, {}, {})
+    expect(result).toBe(30)
+  })
+
+  it('sums multiple properties correctly', () => {
+    // Space 1 (mortgage 30) + Space 3 (mortgage 30) both owned by player 0
+    const propertyOwners = { 1: 0, 3: 0 }
+    const result = calculateLiquidationValue(0, propertyOwners, {}, {})
+    expect(result).toBe(60)
+  })
+})
+
+describe('canPlayerLiquidate', () => {
+  it('returns true when player has unmortgaged properties', () => {
+    const propertyOwners = { 1: 0 }
+    expect(canPlayerLiquidate(0, propertyOwners, {}, {})).toBe(true)
+  })
+
+  it('returns true when player has houses to sell', () => {
+    const propertyOwners = { 1: 0 }
+    const propertyHouses = { 1: 2 }
+    const mortgagedProperties = { 1: true } // already mortgaged, but has houses
+    // Actually you can't have houses on a mortgaged property, but testing the function
+    expect(canPlayerLiquidate(0, propertyOwners, propertyHouses, mortgagedProperties)).toBe(true)
+  })
+
+  it('returns false when player has no properties', () => {
+    expect(canPlayerLiquidate(0, {}, {}, {})).toBe(false)
+  })
+
+  it('returns false when all properties are already mortgaged and have no houses', () => {
+    const propertyOwners = { 1: 0 }
+    const mortgagedProperties = { 1: true }
+    expect(canPlayerLiquidate(0, propertyOwners, {}, mortgagedProperties)).toBe(false)
+  })
+})
+
+describe('findCreditorForPlayer', () => {
+  it('returns owner id when player is on another player owned property', () => {
+    const player = createPlayer({ id: 0, position: 1 })
+    const players = [player, createPlayer({ id: 1 })]
+    const propertyOwners = { 1: 1 }
+    expect(findCreditorForPlayer(player, players, propertyOwners, {})).toBe(1)
+  })
+
+  it('returns null when player is on a tax space', () => {
+    const player = createPlayer({ id: 0, position: 4 }) // Income Tax
+    const players = [player, createPlayer({ id: 1 })]
+    expect(findCreditorForPlayer(player, players, {}, {})).toBeNull()
+  })
+
+  it('returns null when player is on their own property', () => {
+    const player = createPlayer({ id: 0, position: 1 })
+    const players = [player, createPlayer({ id: 1 })]
+    const propertyOwners = { 1: 0 }
+    expect(findCreditorForPlayer(player, players, propertyOwners, {})).toBeNull()
+  })
+
+  it('returns null when property is mortgaged', () => {
+    const player = createPlayer({ id: 0, position: 1 })
+    const players = [player, createPlayer({ id: 1 })]
+    const propertyOwners = { 1: 1 }
+    const mortgagedProperties = { 1: true }
+    expect(findCreditorForPlayer(player, players, propertyOwners, mortgagedProperties)).toBeNull()
+  })
+
+  it('returns null when player is on an unowned property', () => {
+    const player = createPlayer({ id: 0, position: 1 })
+    const players = [player, createPlayer({ id: 1 })]
+    expect(findCreditorForPlayer(player, players, {}, {})).toBeNull()
   })
 })
