@@ -34,7 +34,7 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
       onClick={onClick}
       className={cn(
         "relative flex cursor-pointer border border-[#8B6914]/50 transition-all overflow-hidden",
-        isCorner ? "h-20 w-20 items-center justify-center" : isVertical ? "h-12 w-20" : "h-20 w-12",
+        isCorner ? "h-full w-full items-center justify-center" : "h-full w-full",
         ownerColor && "ring-2 ring-inset",
         hasSpecialImage ? "bg-[#2c3e50]" : "bg-[#f5f0e6] hover:bg-[#eee8d8]"
       )}
@@ -106,11 +106,11 @@ export function BoardSpace({ space, players, position, isCorner, onClick, ownerC
             {space.price && <span className="text-[6px] text-[#5c4a1f] font-medium">${space.price}</span>}
           </>
         ) : hasSpecialImage ? (
-          <div className="flex flex-col items-center justify-end h-full pb-1">
+          <div className="flex h-full flex-col items-center justify-end pb-1">
             <span
               className={cn(
                 "font-serif font-bold text-white drop-shadow-md text-center leading-tight",
-                isCorner ? "text-[9px]" : "text-[7px]"
+                isCorner ? "text-[9px]" : isVertical ? "text-[6px]" : "text-[7px]"
               )}
             >
               {space.name}

@@ -231,9 +231,9 @@ describe('BoardSpace component', () => {
         />
       )
       
-      // Non-corner bottom spaces should be h-20 w-12
-      expect(container.firstChild).toHaveClass('h-20')
-      expect(container.firstChild).toHaveClass('w-12')
+      // Board spaces now fill the responsive grid cell
+      expect(container.firstChild).toHaveClass('h-full')
+      expect(container.firstChild).toHaveClass('w-full')
     })
 
     it('should apply correct styling for corner spaces', () => {
@@ -246,9 +246,9 @@ describe('BoardSpace component', () => {
         />
       )
       
-      // Corner spaces should be h-20 w-20
-      expect(container.firstChild).toHaveClass('h-20')
-      expect(container.firstChild).toHaveClass('w-20')
+      // Corner spaces also fill the responsive grid cell
+      expect(container.firstChild).toHaveClass('h-full')
+      expect(container.firstChild).toHaveClass('w-full')
     })
 
     it('should apply correct styling for left position', () => {
@@ -260,9 +260,9 @@ describe('BoardSpace component', () => {
         />
       )
       
-      // Left/right spaces should be h-12 w-20
-      expect(container.firstChild).toHaveClass('h-12')
-      expect(container.firstChild).toHaveClass('w-20')
+      // Left/right spaces also fill the responsive grid cell
+      expect(container.firstChild).toHaveClass('h-full')
+      expect(container.firstChild).toHaveClass('w-full')
     })
   })
 

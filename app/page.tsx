@@ -1524,10 +1524,10 @@ export default function MonopolyGame() {
         : "md:grid-cols-4"
 
   return (
-    <main className="vintage-paper min-h-screen p-4">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6">
+    <main className="vintage-paper min-h-screen p-3 sm:p-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-4 sm:gap-6">
         {/* Center - Game Board */}
-        <div className="overflow-auto rounded-lg golden-glow">
+        <div className="w-full overflow-x-auto rounded-lg golden-glow pb-2">
           <GameBoard
             players={gameState.players}
             onSpaceClick={handleSpaceClick}
@@ -1537,7 +1537,7 @@ export default function MonopolyGame() {
         </div>
 
         {/* Player Panels - Below the board */}
-        <div className={`grid w-full max-w-4xl grid-cols-2 gap-3 ${playerPanelColumnsClass}`}>
+        <div className={`grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 ${playerPanelColumnsClass}`}>
           {gameState.players.map((player) => (
             <PlayerPanel
               key={player.id}
@@ -1550,21 +1550,23 @@ export default function MonopolyGame() {
         </div>
 
         {/* Game Controls - Below the player panels */}
-        <GameControls
-          diceValues={gameState.diceValues}
-          rolling={gameState.rolling}
-          hasRolled={gameState.hasRolled}
-          onRoll={handleRoll}
-          currentPlayerName={currentPlayer.name}
-          isInJail={currentPlayer.inJail}
-          jailTurns={currentPlayer.jailTurns}
-          onPayJailFee={handlePayJailFee}
-          canAffordJailFee={currentPlayer.money >= JAIL_FEE}
-          onTrade={handleOpenTrade}
-          tradeDisabled={tradeDisabled}
-          gameOver={gameState.gameOver}
-          winnerName={winner?.name ?? undefined}
-        />
+        <div className="w-full max-w-md">
+          <GameControls
+            diceValues={gameState.diceValues}
+            rolling={gameState.rolling}
+            hasRolled={gameState.hasRolled}
+            onRoll={handleRoll}
+            currentPlayerName={currentPlayer.name}
+            isInJail={currentPlayer.inJail}
+            jailTurns={currentPlayer.jailTurns}
+            onPayJailFee={handlePayJailFee}
+            canAffordJailFee={currentPlayer.money >= JAIL_FEE}
+            onTrade={handleOpenTrade}
+            tradeDisabled={tradeDisabled}
+            gameOver={gameState.gameOver}
+            winnerName={winner?.name ?? undefined}
+          />
+        </div>
       </div>
 
       {/* Player Properties Modal */}

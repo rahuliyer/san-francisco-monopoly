@@ -28,12 +28,21 @@ export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouse
 
   const getHouseCount = (spaceId: number) => propertyHouses?.[spaceId] ?? 0
 
+  const cellSize = "clamp(30px, 8.5vw, 48px)"
+  const cornerSize = "clamp(54px, 15vw, 80px)"
+
   return (
-    <div className="relative inline-block bg-[#e8dcc8] p-2 rounded-lg border-4 border-[#8B6914]">
+    <div className="relative inline-block max-w-full bg-[#e8dcc8] p-2 rounded-lg border-4 border-[#8B6914]">
       {/* Art Deco outer frame */}
       <div className="absolute inset-0 rounded-lg border-2 border-[#d4af37] pointer-events-none" />
       {/* Main board container using CSS Grid */}
-      <div className="grid grid-cols-[80px_repeat(9,48px)_80px] grid-rows-[80px_repeat(9,48px)_80px] border-2 border-[#5c4a1f]">
+      <div
+        className="grid border-2 border-[#5c4a1f]"
+        style={{
+          gridTemplateColumns: `${cornerSize} repeat(9, ${cellSize}) ${cornerSize}`,
+          gridTemplateRows: `${cornerSize} repeat(9, ${cellSize}) ${cornerSize}`,
+        }}
+      >
         {/* Top row */}
         {topRow.map((space, index) => (
           <div
@@ -119,10 +128,10 @@ export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouse
           {/* Art Deco divider line top */}
           <div className="absolute top-6 left-12 right-12 h-0.5 bg-gradient-to-r from-transparent via-[#d4af37] to-transparent" />
 
-          <h1 className="text-center font-serif text-4xl font-bold tracking-[0.2em] text-[#2c4a5c] drop-shadow-sm">
+          <h1 className="text-center font-serif text-xl font-bold tracking-[0.15em] text-[#2c4a5c] drop-shadow-sm sm:text-2xl md:text-4xl md:tracking-[0.2em]">
             SAN FRANCISCO
           </h1>
-          <h2 className="text-center font-serif text-3xl font-bold tracking-[0.3em] text-[#8B6914] mt-1">
+          <h2 className="mt-1 text-center font-serif text-lg font-bold tracking-[0.18em] text-[#8B6914] sm:text-xl md:text-3xl md:tracking-[0.3em]">
             MONOPOLY
           </h2>
 
