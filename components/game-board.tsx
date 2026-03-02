@@ -32,7 +32,7 @@ export function GameBoard({ players, onSpaceClick, propertyOwners, propertyHouse
   const cornerSize = "clamp(54px, 15vw, 80px)"
 
   return (
-    <div className="relative inline-block max-w-full bg-[#e8dcc8] p-2 rounded-lg border-4 border-[#8B6914]">
+    <div className="relative inline-block bg-[#e8dcc8] p-2 rounded-lg border-4 border-[#8B6914]">
       {/* Art Deco outer frame */}
       <div className="absolute inset-0 rounded-lg border-2 border-[#d4af37] pointer-events-none" />
       {/* Main board container using CSS Grid */}
