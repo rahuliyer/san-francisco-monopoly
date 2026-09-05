@@ -5,6 +5,12 @@
 
 import type { Player, Space, GameCard } from "@/lib/game-data"
 import { rollDice as defaultRollDice } from "@/lib/game-data"
+import {
+  type CardDeck,
+  createShuffledDeck,
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+} from "@/lib/models/card"
 import { GAME_CONSTANTS } from "@/lib/constants"
 
 const { LOG_HISTORY_SIZE } = GAME_CONSTANTS
@@ -23,6 +29,10 @@ export interface GameState {
   selectedSpace: Space | null
   specialSpace: Space | null
   drawnCard: GameCard | null
+  /** Draw pile for Chance cards. Kept in state so draws are deterministic and serializable. */
+  chanceDeck: CardDeck
+  /** Draw pile for Community Chest cards. Kept in state so draws are deterministic and serializable. */
+  communityChestDeck: CardDeck
   gameLog: string[]
   awaitingPropertyDecision: boolean
   awaitingSpecialSpace: boolean
@@ -58,6 +68,8 @@ export function createInitialGameState(): GameState {
     selectedSpace: null,
     specialSpace: null,
     drawnCard: null,
+    chanceDeck: createShuffledDeck(CHANCE_CARDS),
+    communityChestDeck: createShuffledDeck(COMMUNITY_CHEST_CARDS),
     gameLog: [],
     awaitingPropertyDecision: false,
     awaitingSpecialSpace: false,
