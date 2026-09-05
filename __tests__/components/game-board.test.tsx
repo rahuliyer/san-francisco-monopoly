@@ -26,6 +26,7 @@ describe('GameBoard component', () => {
       inJail: false,
       jailTurns: 0,
       isBankrupt: false,
+      getOutOfJailFreeCards: [],
     }))
   }
 
