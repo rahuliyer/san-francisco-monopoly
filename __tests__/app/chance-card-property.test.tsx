@@ -12,20 +12,23 @@ jest.mock('next/image', () => ({
   },
 }))
 
-// Mock the card drawing functions
-jest.mock('@/lib/game-data', () => {
-  const originalModule = jest.requireActual('@/lib/game-data')
+// Keep deck creation real, but control which card the production deck draw returns.
+jest.mock('@/lib/models/card', () => {
+  const originalModule = jest.requireActual('@/lib/models/card')
   return {
     ...originalModule,
-    drawChanceCard: jest.fn(),
-    drawCommunityChestCard: jest.fn(),
+    drawCard: jest.fn(originalModule.drawCard),
   }
 })
 
-import { drawChanceCard, drawCommunityChestCard, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '@/lib/game-data'
+import { CHANCE_CARDS } from '@/lib/game-data'
+import { drawCard, type GameCard } from '@/lib/models/card'
 
-const mockDrawChanceCard = drawChanceCard as jest.MockedFunction<typeof drawChanceCard>
-const mockDrawCommunityChestCard = drawCommunityChestCard as jest.MockedFunction<typeof drawCommunityChestCard>
+const mockDrawCard = drawCard as jest.MockedFunction<typeof drawCard>
+
+function setDrawnCard(card: GameCard) {
+  mockDrawCard.mockImplementation((deck) => ({ card, newDeck: deck }))
+}
 
 function renderGame() {
   return render(
@@ -54,9 +57,7 @@ describe('Chance/Community Chest card property mechanics', () => {
     jest.useFakeTimers()
     clearTestDiceRolls()
     jest.clearAllMocks()
-    // Default mock implementations
-    mockDrawChanceCard.mockReturnValue(CHANCE_CARDS[6]) // "Collect $50" by default
-    mockDrawCommunityChestCard.mockReturnValue(COMMUNITY_CHEST_CARDS[1]) // "Collect $200" by default
+    setDrawnCard(CHANCE_CARDS[6]) // "Collect $50" by default
   })
 
   afterEach(() => {
@@ -103,7 +104,7 @@ describe('Chance/Community Chest card property mechanics', () => {
       ])
 
       // Mock the Chance card to advance to Sea Cliff (position 39, unowned property)
-      mockDrawChanceCard.mockReturnValue({
+      setDrawnCard({
         id: 2,
         text: "Your Victorian in Sea Cliff appreciated! Advance to Sea Cliff.",
         effect: { type: "advance", position: 39 }
@@ -157,7 +158,7 @@ describe('Chance/Community Chest card property mechanics', () => {
 
       // First call: Alice draws a "collect $50" card
       // We'll need a multi-step test for this scenario
-      mockDrawChanceCard.mockReturnValue({
+      setDrawnCard({
         id: 7,
         text: "Your app got featured on Product Hunt! Collect $50.",
         effect: { type: "collect", amount: 50 }
@@ -242,7 +243,7 @@ describe('Chance/Community Chest card property mechanics', () => {
         [4, 3], // Roll 7 to land on Chance at position 7
       ])
 
-      mockDrawChanceCard.mockReturnValue({
+      setDrawnCard({
         id: 99, // Custom card for testing
         text: "Walk back 1 space to save fare!",
         effect: { type: "go-back", spaces: 1 }
