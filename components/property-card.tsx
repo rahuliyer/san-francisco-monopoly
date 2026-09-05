@@ -31,6 +31,9 @@ interface PropertyCardProps {
   buildMessage?: string
   onBuildHouse?: () => void
   onBuildHotel?: () => void
+  canSellHouse?: boolean
+  sellHousePrice?: number
+  onSellHouse?: () => void
 }
 
 export function PropertyCard({ 
@@ -57,7 +60,10 @@ export function PropertyCard({
   canBuildHotel,
   buildMessage,
   onBuildHouse,
-  onBuildHotel
+  onBuildHotel,
+  canSellHouse = false,
+  sellHousePrice,
+  onSellHouse
 }: PropertyCardProps) {
   const colorBarColor = space.colorGroup ? COLOR_MAP[space.colorGroup] : "#666"
   const resolvedUnmortgageCost =
@@ -78,10 +84,13 @@ export function PropertyCard({
   const buildButtonLabel = resolvedHouseCount >= 4 ? "Build Hotel" : "Build House"
   const buildButtonDisabled = resolvedHouseCount >= 4 ? !canBuildHotel : !canBuildHouse
   const buildAction = resolvedHouseCount >= 4 ? onBuildHotel ?? onBuildHouse : onBuildHouse
+  const showSellButton =
+    canManageHouses && space.type === "property" && !!space.houseCost && resolvedHouseCount > 0
+  const sellButtonLabel = resolvedHouseCount >= 5 ? "Sell Hotel" : "Sell House"
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative w-full max-w-xs overflow-hidden rounded-lg bg-gradient-to-b from-[#faf6ee] to-[#f5efe3] shadow-2xl border-2 border-[#8B6914]">
+      <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-xs overflow-x-hidden overflow-y-auto rounded-lg bg-gradient-to-b from-[#faf6ee] to-[#f5efe3] shadow-2xl border-2 border-[#8B6914]">
         {/* Hero image */}
         {space.image && (
           <div className="relative h-32 w-full">
@@ -218,6 +227,19 @@ export function PropertyCard({
               )}
               {!showBuildButton && buildMessage && (
                 <p className="mt-2 text-xs text-[#8B6914]">{buildMessage}</p>
+              )}
+              {showSellButton && (
+                <div className="mt-2">
+                  <Button
+                    onClick={onSellHouse}
+                    disabled={!canSellHouse || !onSellHouse}
+                    variant="outline"
+                    className="w-full border-[#c94c4c]/50 text-[#8b3a3a] hover:bg-[#c94c4c]/10 disabled:opacity-50 font-serif"
+                  >
+                    {sellButtonLabel}
+                    {sellHousePrice !== undefined ? ` (+$${sellHousePrice})` : ""}
+                  </Button>
+                </div>
               )}
             </div>
           )}

@@ -28,8 +28,10 @@ import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSing
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
 import {
+  calculateHouseSellPrice,
   canBuildHouse as checkCanBuildHouse,
   canMortgage as checkCanMortgage,
+  canSellHouse,
 } from "@/lib/mechanics/property-actions"
 import { LiquidationModal } from "@/components/liquidation-modal"
 
@@ -870,6 +872,13 @@ export default function MonopolyGame() {
     dispatch(gameActions.buildHouse(space.id))
   }, [gameState.selectedSpace, dispatch])
 
+  const handleSellHouse = useCallback(() => {
+    const space = gameState.selectedSpace
+    if (!space || space.type !== "property" || !space.houseCost) return
+
+    dispatch(gameActions.sellHouse(space.id))
+  }, [gameState.selectedSpace, dispatch])
+
   const handleViewPlayerProperties = useCallback((player: Player) => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
   }, [])
@@ -1279,6 +1288,22 @@ export default function MonopolyGame() {
     }
   }
 
+  const selectedSpaceSellPrice =
+    gameState.selectedSpace?.houseCost !== undefined
+      ? calculateHouseSellPrice(gameState.selectedSpace.houseCost)
+      : undefined
+  const canSellSelectedHouse = !!(
+    canManageHouses &&
+    gameState.selectedSpace &&
+    canSellHouse(
+      currentPlayer,
+      gameState.selectedSpace,
+      selectedSpaceOwnerId,
+      gameState.propertyOwners,
+      gameState.propertyHouses
+    ).allowed
+  )
+
   const canBuySelectedSpace =
     gameState.selectedSpace &&
     gameState.selectedSpace.price &&
@@ -1507,6 +1532,9 @@ export default function MonopolyGame() {
           buildMessage={buildMessage}
           onBuildHouse={handleBuildHouse}
           onBuildHotel={handleBuildHouse}
+          canSellHouse={canSellSelectedHouse}
+          sellHousePrice={selectedSpaceSellPrice}
+          onSellHouse={handleSellHouse}
         />
       )}
 
