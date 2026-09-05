@@ -27,6 +27,10 @@ import { actions as gameActions, type GameAction } from "@/lib/game-loop"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
+import {
+  canBuildHouse as checkCanBuildHouse,
+  canMortgage as checkCanMortgage,
+} from "@/lib/mechanics/property-actions"
 import { LiquidationModal } from "@/components/liquidation-modal"
 
 const {
@@ -1231,7 +1235,9 @@ export default function MonopolyGame() {
       ? gameState.propertyOwners[gameState.selectedSpace.id]
       : undefined
   const selectedSpaceOwner =
-    selectedSpaceOwnerId !== undefined ? gameState.players[selectedSpaceOwnerId] : undefined
+    selectedSpaceOwnerId !== undefined
+      ? gameState.players.find((player) => player.id === selectedSpaceOwnerId)
+      : undefined
   const selectedSpaceIsMortgaged = gameState.selectedSpace
     ? gameState.mortgagedProperties[gameState.selectedSpace.id] === true
     : false
@@ -1241,39 +1247,32 @@ export default function MonopolyGame() {
       ? calculateUnmortgageCost(selectedSpaceMortgageValue)
       : undefined
   const isSelectedSpaceOwnedByCurrentPlayer =
-    selectedSpaceOwnerId === gameState.currentPlayerIndex
+    selectedSpaceOwnerId === currentPlayer.id
 
   const selectedSpaceHouseCount = gameState.selectedSpace
     ? gameState.propertyHouses[gameState.selectedSpace.id] ?? 0
     : 0
   const canManageHouses =
     gameState.selectedSpace?.type === "property" &&
-    selectedSpaceOwnerId === gameState.currentPlayerIndex
+    isSelectedSpaceOwnedByCurrentPlayer
   let canBuildHouse = false
   let canBuildHotel = false
   let buildMessage: string | undefined
 
   if (canManageHouses && gameState.selectedSpace?.houseCost) {
-    const groupSpaces = getSpacesByColorGroup(gameState.selectedSpace.colorGroup)
-    const ownsAllInGroup =
-      groupSpaces.length > 0 &&
-      groupSpaces.every(
-        (groupSpace) => gameState.propertyOwners[groupSpace.id] === gameState.currentPlayerIndex
-      )
-    const groupHouseCounts = groupSpaces.map(
-      (groupSpace) => gameState.propertyHouses[groupSpace.id] ?? 0
+    const buildCheck = checkCanBuildHouse(
+      currentPlayer,
+      gameState.selectedSpace,
+      selectedSpaceOwnerId,
+      gameState.propertyOwners,
+      gameState.propertyHouses,
+      gameState.mortgagedProperties
     )
-    const minHouseCount = groupHouseCounts.length ? Math.min(...groupHouseCounts) : 0
-    const isEvenBuild = selectedSpaceHouseCount === minHouseCount
 
-    if (!ownsAllInGroup) {
-      buildMessage = "Own all properties in this neighborhood to build."
-    } else if (selectedSpaceHouseCount >= MAX_HOUSES) {
-      buildMessage = "This property already has a hotel."
-    } else if (!isEvenBuild) {
-      buildMessage = "Build evenly across the neighborhood."
-    } else if (currentPlayer.money < gameState.selectedSpace.houseCost) {
-      buildMessage = `Need $${gameState.selectedSpace.houseCost} to build.`
+    if (!buildCheck.allowed) {
+      buildMessage = buildCheck.reason
+        ? `${buildCheck.reason}.`
+        : "Building is not available."
     } else {
       canBuildHouse = selectedSpaceHouseCount < 4
       canBuildHotel = selectedSpaceHouseCount === 4
@@ -1302,11 +1301,20 @@ export default function MonopolyGame() {
     currentPlayer.isBankrupt ||
     activePlayersCount < 2
 
-  const canMortgageSelectedSpace =
-    gameState.selectedSpace &&
-    selectedSpaceMortgageValue !== undefined &&
-    isSelectedSpaceOwnedByCurrentPlayer &&
-    !selectedSpaceIsMortgaged
+  const mortgageCheck = gameState.selectedSpace
+    ? checkCanMortgage(
+        currentPlayer,
+        gameState.selectedSpace,
+        selectedSpaceOwnerId,
+        gameState.propertyHouses,
+        gameState.mortgagedProperties
+      )
+    : { allowed: false, reason: undefined }
+  const canMortgageSelectedSpace = mortgageCheck.allowed
+  const mortgageMessage =
+    isSelectedSpaceOwnedByCurrentPlayer && !selectedSpaceIsMortgaged
+      ? mortgageCheck.reason
+      : undefined
 
   const canUnmortgageSelectedSpace =
     gameState.selectedSpace &&
@@ -1484,6 +1492,7 @@ export default function MonopolyGame() {
           onMortgage={handleMortgageProperty}
           onUnmortgage={handleUnmortgageProperty}
           canMortgage={!!canMortgageSelectedSpace}
+          mortgageMessage={mortgageMessage}
           canUnmortgage={!!canUnmortgageSelectedSpace}
           canAffordUnmortgage={!!canAffordUnmortgage}
           isMortgaged={selectedSpaceIsMortgaged}

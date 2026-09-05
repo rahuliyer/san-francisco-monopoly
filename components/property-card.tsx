@@ -16,6 +16,7 @@ interface PropertyCardProps {
   onMortgage?: () => void
   onUnmortgage?: () => void
   canMortgage?: boolean
+  mortgageMessage?: string
   canUnmortgage?: boolean
   canAffordUnmortgage?: boolean
   isMortgaged?: boolean
@@ -42,6 +43,7 @@ export function PropertyCard({
   onMortgage,
   onUnmortgage,
   canMortgage = false,
+  mortgageMessage,
   canUnmortgage = false,
   canAffordUnmortgage = true,
   isMortgaged = false,
@@ -61,7 +63,7 @@ export function PropertyCard({
   const resolvedUnmortgageCost =
     unmortgageCost ?? (space.mortgage !== undefined ? Math.ceil(space.mortgage * 1.1) : undefined)
   const showMortgageActions =
-    (canMortgage && onMortgage) ||
+    ((canMortgage || mortgageMessage) && onMortgage) ||
     (canUnmortgage && onUnmortgage && resolvedUnmortgageCost !== undefined)
   const showContinueButton =
     isOwnProperty || rentPaid !== undefined || (isMortgaged && owner !== undefined)
@@ -282,14 +284,18 @@ export function PropertyCard({
 
           {showMortgageActions && (
             <div className="mt-4 space-y-2">
-              {canMortgage && onMortgage && (
+              {(canMortgage || mortgageMessage) && onMortgage && (
                 <Button
                   onClick={onMortgage}
+                  disabled={!canMortgage}
                   variant="outline"
-                  className="w-full border-[#d4af37]/50 text-[#8B6914] hover:bg-[#d4af37]/10 font-serif"
+                  className="w-full border-[#d4af37]/50 text-[#8B6914] hover:bg-[#d4af37]/10 disabled:opacity-50 font-serif"
                 >
                   Mortgage for ${space.mortgage}
                 </Button>
+              )}
+              {mortgageMessage && (
+                <p className="text-xs text-[#8B6914]">{mortgageMessage}</p>
               )}
               {canUnmortgage && onUnmortgage && resolvedUnmortgageCost !== undefined && (
                 <Button

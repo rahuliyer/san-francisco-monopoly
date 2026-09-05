@@ -75,16 +75,21 @@ export function canBuildHouse(
     return { allowed: false, reason: "Cannot build on mortgaged property" }
   }
 
-  // Must own all properties in the color group (monopoly) - all non-mortgaged
+  // Must own all properties in the color group (monopoly).
   const groupSpaces = getSpacesByColorGroup(property.colorGroup)
   const ownsMonopoly = groupSpaces.every(
-    (s) =>
-      propertyOwners[s.id] === player.id &&
-      mortgagedProperties[s.id] !== true
+    (s) => propertyOwners[s.id] === player.id
   )
 
   if (!ownsMonopoly) {
     return { allowed: false, reason: "Own all properties in this neighborhood to build" }
+  }
+
+  const hasMortgagedProperty = groupSpaces.some(
+    (s) => mortgagedProperties[s.id] === true
+  )
+  if (hasMortgagedProperty) {
+    return { allowed: false, reason: "Unmortgage all properties in this neighborhood to build" }
   }
 
   // Check current house count
