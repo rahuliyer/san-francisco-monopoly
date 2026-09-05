@@ -28,6 +28,7 @@ import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSing
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
 import { canSellHouse, calculateHouseSellPrice } from "@/lib/mechanics/property-actions"
+import { decideAiMove, type AiTurnView } from "@/lib/ai/policy"
 import { LiquidationModal } from "@/components/liquidation-modal"
 
 const {
@@ -48,6 +49,9 @@ const {
 function calculateUnmortgageCost(mortgageValue: number): number {
   return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
 }
+
+/** Delay between computer-player moves so they are visible in the UI. */
+const AI_MOVE_DELAY_MS = 650
 
 export default function MonopolyGame() {
   const store = useGameStore()
@@ -77,15 +81,18 @@ export default function MonopolyGame() {
   const [gameStarted, setGameStarted] = useState(false)
   const [isTradeOpen, setIsTradeOpen] = useState(false)
   const endTurnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const aiTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const handleStartGame = (playerSetups: { name: string; tokenIndex: number }[]) => {
+  const handleStartGame = (
+    playerSetups: { name: string; tokenIndex: number; isComputer?: boolean }[]
+  ) => {
     if (typeof window !== "undefined" && window.__DETERMINISTIC_GAME_CONFIG__) {
       setGameStarted(true)
       return
     }
 
     const players = playerSetups.map((setup, i) =>
-      createPlayer(i, setup.name, setup.tokenIndex)
+      createPlayer(i, setup.name, setup.tokenIndex, undefined, setup.isComputer ?? false)
     )
     setGameState((prev) => ({
       ...prev,
@@ -1235,6 +1242,84 @@ export default function MonopolyGame() {
     }
     handleEndTurn()
   }, [gameState.players, gameState.currentPlayerIndex, gameState.gameOver, handleEndTurn])
+
+  // Computer player driver: when it is an AI seat's turn, decide the next move
+  // from the current turn snapshot and trigger the same handler a human would.
+  // A short delay keeps moves visible; the effect re-runs on every state change,
+  // stepping the AI through roll -> decide -> acknowledge -> (auto) end turn.
+  useEffect(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (!currentPlayer?.isComputer) {
+      return
+    }
+
+    const selectedSpace = gameState.selectedSpace
+    const canBuy = !!(
+      selectedSpace &&
+      selectedSpace.price &&
+      gameState.propertyOwners[selectedSpace.id] === undefined &&
+      currentPlayer.position === selectedSpace.id &&
+      gameState.hasRolled &&
+      currentPlayer.money >= selectedSpace.price
+    )
+
+    const view: AiTurnView = {
+      isComputer: true,
+      gameOver: gameState.gameOver,
+      rolling: gameState.rolling,
+      hasRolled: gameState.hasRolled,
+      inJail: currentPlayer.inJail,
+      jailFreeCards: currentPlayer.getOutOfJailFreeCards ?? 0,
+      awaitingSpecialSpace: gameState.awaitingSpecialSpace,
+      propertyModalOpen: selectedSpace !== null,
+      canBuy,
+      buyPrice: selectedSpace?.price ?? null,
+      money: currentPlayer.money,
+    }
+
+    const move = decideAiMove(view)
+    if (move === "wait") {
+      return
+    }
+
+    aiTimeoutRef.current = setTimeout(() => {
+      switch (move) {
+        case "roll":
+          handleRoll()
+          break
+        case "useJailCard":
+          handleUseJailCard()
+          break
+        case "buy":
+          handleBuyProperty()
+          break
+        case "pass":
+          handlePassProperty()
+          break
+        case "closeProperty":
+          handleCloseCard()
+          break
+        case "closeSpecial":
+          handleCloseSpecialCard()
+          break
+      }
+    }, AI_MOVE_DELAY_MS)
+
+    return () => {
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current)
+        aiTimeoutRef.current = null
+      }
+    }
+  }, [
+    gameState,
+    handleRoll,
+    handleUseJailCard,
+    handleBuyProperty,
+    handlePassProperty,
+    handleCloseCard,
+    handleCloseSpecialCard,
+  ])
 
   if (showSplash) {
     return <SplashScreen onPlay={() => setShowSplash(false)} />
