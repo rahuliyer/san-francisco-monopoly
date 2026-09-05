@@ -3,6 +3,12 @@ import { createInitialGameState, type GameState } from "@/lib/game-store"
 import { createPlayer } from "@/lib/models/player"
 import { QueuedDiceRoller, type DiceValues } from "@/lib/mechanics/dice"
 import { createDeterministicGame } from "@/lib/state/test-utils"
+import {
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+  createDeckFromIds,
+} from "@/lib/models/card"
+import { actions } from "@/lib/game-loop/actions"
 
 function deps(rolls: DiceValues[] = []): ReducerDependencies {
   return { diceRoller: new QueuedDiceRoller(rolls) }
@@ -82,6 +88,23 @@ describe("game engine (reducer)", () => {
   })
 
   describe("deterministic card draws", () => {
+    it("uses the stable player id when charging for repairs", () => {
+      const pA = { ...createPlayer(5, "A", 0), position: 5 }
+      const pB = createPlayer(2, "B", 1)
+      const state = baseState({
+        players: [pA, pB],
+        currentPlayerIndex: 0,
+        propertyOwners: { 6: 5, 39: 5 },
+        propertyHouses: { 6: 2, 39: 5 },
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [10]),
+      })
+
+      const next = gameReducer(state, { type: "ROLL_DICE" }, deps([[1, 1]]))
+
+      expect(next.players[0].money).toBe(1350)
+      expect(next.gameLog).toContain("A paid $150 for repairs (2 houses, 1 hotel)")
+    })
+
     it("draws Chance cards in the configured order and advances the deck", () => {
       const { gameLoop } = createDeterministicGame({
         players: [{ name: "P0", tokenIndex: 0, initialPosition: 5 }],
@@ -108,6 +131,32 @@ describe("game engine (reducer)", () => {
 
       expect(state.drawnCard?.id).toBe(2)
       expect(state.communityChestDeck.drawIndex).toBe(1)
+    })
+
+    it("replays lifecycle actions with their supplied deck orders", () => {
+      const initial = baseState({})
+      const chanceDeck = createDeckFromIds(CHANCE_CARDS, [7, 13])
+      const communityChestDeck = createDeckFromIds(COMMUNITY_CHEST_CARDS, [2, 6])
+      const startAction = actions.startGame(
+        [{ name: "P0", tokenIndex: 0 }],
+        chanceDeck,
+        communityChestDeck
+      )
+
+      const firstStart = gameReducer(initial, startAction, deps())
+      const replayedStart = gameReducer(initial, startAction, deps())
+
+      expect(replayedStart).toEqual(firstStart)
+      expect(firstStart.chanceDeck).toBe(chanceDeck)
+      expect(firstStart.communityChestDeck).toBe(communityChestDeck)
+
+      const resetChanceDeck = createDeckFromIds(CHANCE_CARDS, [13, 7])
+      const resetCommunityChestDeck = createDeckFromIds(COMMUNITY_CHEST_CARDS, [6, 2])
+      const resetAction = actions.resetGame(resetChanceDeck, resetCommunityChestDeck)
+
+      expect(gameReducer(firstStart, resetAction, deps())).toEqual(
+        gameReducer(firstStart, resetAction, deps())
+      )
     })
   })
 })

@@ -8,9 +8,6 @@ import { createPlayer, type Player } from "@/lib/models/player"
 import { BOARD_SPACES, getSpacesByColorGroup } from "@/lib/models/board"
 import {
   drawCard,
-  createShuffledDeck,
-  CHANCE_CARDS,
-  COMMUNITY_CHEST_CARDS,
   type GameCard,
 } from "@/lib/models/card"
 import { applyCardEffect, formatRepairsSummary } from "@/lib/mechanics/cards"
@@ -26,7 +23,7 @@ import {
 import { handleJailEscape, handleJailFeePayment, shouldGoToJailForDoubles } from "@/lib/mechanics/jail"
 import { getNextPlayerIndex, shouldEndTurn, shouldRollAgain } from "@/lib/mechanics/turn"
 import { resolveBankruptcies, getWinnerId } from "@/lib/game-status"
-import { isDoubles, diceTotal, getRandomInitialDice } from "@/lib/mechanics/dice"
+import { isDoubles, diceTotal } from "@/lib/mechanics/dice"
 import { GAME_CONSTANTS } from "@/lib/constants"
 
 const {
@@ -548,7 +545,7 @@ function endTurnReducer(state: GameState): GameState {
     currentPlayerIndex: nextPlayerIndex,
     hasRolled: false,
     consecutiveDoubles: 0,
-    diceValues: getRandomInitialDice(),
+    diceValues: state.diceValues,
     awaitingPropertyDecision: false,
     awaitingSpecialSpace: false,
     specialSpace: null,
@@ -561,7 +558,9 @@ function endTurnReducer(state: GameState): GameState {
 /** Start game reducer */
 function startGameReducer(
   state: GameState,
-  players: { name: string; tokenIndex: number }[]
+  players: { name: string; tokenIndex: number }[],
+  chanceDeck: GameState["chanceDeck"],
+  communityChestDeck: GameState["communityChestDeck"]
 ): GameState {
   const newPlayers = players.map((setup, i) =>
     createPlayer(i, setup.name, setup.tokenIndex)
@@ -580,9 +579,8 @@ function startGameReducer(
     hasRolled: false,
     rolling: false,
     consecutiveDoubles: 0,
-    diceValues: getRandomInitialDice(),
-    chanceDeck: createShuffledDeck(CHANCE_CARDS),
-    communityChestDeck: createShuffledDeck(COMMUNITY_CHEST_CARDS),
+    chanceDeck,
+    communityChestDeck,
     drawnCard: null,
   }
 }
@@ -694,7 +692,12 @@ export function gameReducer(
 
   switch (action.type) {
     case "START_GAME":
-      return startGameReducer(state, action.players)
+      return startGameReducer(
+        state,
+        action.players,
+        action.chanceDeck,
+        action.communityChestDeck
+      )
 
     case "RESET_GAME":
       return {
@@ -707,8 +710,8 @@ export function gameReducer(
         gameLog: [],
         gameOver: false,
         winnerId: null,
-        chanceDeck: createShuffledDeck(CHANCE_CARDS),
-        communityChestDeck: createShuffledDeck(COMMUNITY_CHEST_CARDS),
+        chanceDeck: action.chanceDeck,
+        communityChestDeck: action.communityChestDeck,
         drawnCard: null,
       }
 

@@ -20,7 +20,7 @@ export interface CardEffectResult {
  * Calculate the cost of repairs based on houses and hotels owned
  */
 export function calculateRepairsCost(
-  playerIndex: number,
+  playerId: number,
   propertyOwners: Record<number, number>,
   propertyHouses: Record<number, number>,
   houseAmount: number,
@@ -30,7 +30,7 @@ export function calculateRepairsCost(
   let hotelCount = 0
 
   Object.entries(propertyOwners).forEach(([spaceId, ownerId]) => {
-    if (ownerId !== playerIndex) return
+    if (ownerId !== playerId) return
     const space = BOARD_SPACES[Number(spaceId)]
     if (space?.type !== "property") return
     const buildings = propertyHouses[Number(spaceId)] ?? 0
@@ -109,7 +109,7 @@ export function applyCardEffect(
     }
     case "repairs":
       repairsSummary = calculateRepairsCost(
-        playerIndex,
+        updatedPlayers[playerIndex].id,
         propertyOwners,
         propertyHouses,
         card.effect.houseAmount,
