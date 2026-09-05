@@ -25,7 +25,14 @@ import { actions as gameActions, type GameAction } from "@/lib/game-loop"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
-import { drawCard, type CardDeckType } from "@/lib/models/card"
+import {
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+  createShuffledDeck,
+  drawCard,
+  returnHeldJailCardsToDecks,
+  type CardDeckType,
+} from "@/lib/models/card"
 import {
   calculateHouseSellPrice,
   canBuildHouse as checkCanBuildHouse,
@@ -128,6 +135,8 @@ export default function MonopolyGame() {
     const players = playerSetups.map((setup, i) =>
       createPlayer(i, setup.name, setup.tokenIndex)
     )
+    const chanceDeck = createShuffledDeck(CHANCE_CARDS)
+    const communityChestDeck = createShuffledDeck(COMMUNITY_CHEST_CARDS)
     setGameState((prev) => ({
       ...prev,
       players,
@@ -135,6 +144,8 @@ export default function MonopolyGame() {
       propertyOwners: {},
       mortgagedProperties: {},
       propertyHouses: {},
+      chanceDeck,
+      communityChestDeck,
       gameLog: ["Game started! " + players[0].name + " goes first."],
       gameOver: false,
       winnerId: null,
@@ -1053,6 +1064,11 @@ export default function MonopolyGame() {
 
       const nextPlayers = resolution.hasChanges ? resolution.players : prev.players
       const winnerId = getWinnerId(nextPlayers)
+      const returnedDecks = returnHeldJailCardsToDecks(
+        prev.chanceDeck,
+        prev.communityChestDeck,
+        resolution.returnedJailCards
+      )
 
       const playerName = prev.players.find((p) => p.id === playerId)?.name
       if (playerName) {
@@ -1068,6 +1084,7 @@ export default function MonopolyGame() {
 
       return {
         ...prev,
+        ...returnedDecks,
         players: resolution.players,
         propertyOwners: resolution.propertyOwners,
         mortgagedProperties: resolution.mortgagedProperties,
@@ -1186,15 +1203,23 @@ export default function MonopolyGame() {
           const nextPlayers = resolution.players
           const winnerId = getWinnerId(nextPlayers)
 
-          setGameState((prev) => ({
-            ...prev,
-            players: resolution.players,
-            propertyOwners: resolution.propertyOwners,
-            mortgagedProperties: resolution.mortgagedProperties,
-            propertyHouses: resolution.propertyHouses,
-            gameOver: winnerId !== null,
-            winnerId,
-          }))
+          setGameState((prev) => {
+            const returnedDecks = returnHeldJailCardsToDecks(
+              prev.chanceDeck,
+              prev.communityChestDeck,
+              resolution.returnedJailCards
+            )
+            return {
+              ...prev,
+              ...returnedDecks,
+              players: resolution.players,
+              propertyOwners: resolution.propertyOwners,
+              mortgagedProperties: resolution.mortgagedProperties,
+              propertyHouses: resolution.propertyHouses,
+              gameOver: winnerId !== null,
+              winnerId,
+            }
+          })
 
           const playerName = gameState.players.find((p) => p.id === player.id)?.name
           if (playerName) {

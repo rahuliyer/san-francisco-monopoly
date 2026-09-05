@@ -173,6 +173,37 @@ export function returnCardToDeck(deck: CardDeck, card: GameCard): CardDeck {
   return { cards: cardsInDrawOrder, drawIndex: 0 }
 }
 
+/** Returns held jail cards to the bottom of their respective source decks. */
+export function returnHeldJailCardsToDecks(
+  chanceDeck: CardDeck,
+  communityChestDeck: CardDeck,
+  sources: readonly CardDeckType[]
+): { chanceDeck: CardDeck; communityChestDeck: CardDeck } {
+  let nextChanceDeck = chanceDeck
+  let nextCommunityChestDeck = communityChestDeck
+
+  for (const source of sources) {
+    const cardPool = source === "chance" ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS
+    const jailCard = cardPool.find(
+      (card) => card.effect.type === "get-out-of-jail-free"
+    )
+    if (!jailCard) continue
+
+    if (source === "chance") {
+      if (!nextChanceDeck.cards.some((card) => card.id === jailCard.id)) {
+        nextChanceDeck = returnCardToDeck(nextChanceDeck, jailCard)
+      }
+    } else if (!nextCommunityChestDeck.cards.some((card) => card.id === jailCard.id)) {
+      nextCommunityChestDeck = returnCardToDeck(nextCommunityChestDeck, jailCard)
+    }
+  }
+
+  return {
+    chanceDeck: nextChanceDeck,
+    communityChestDeck: nextCommunityChestDeck,
+  }
+}
+
 /**
  * Peeks at the next card without advancing the deck.
  */

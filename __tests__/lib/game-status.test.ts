@@ -19,7 +19,7 @@ const createPlayer = (overrides: Partial<Player> = {}): Player => ({
 describe('resolveBankruptcies', () => {
   it('marks players with negative money as bankrupt and releases their assets', () => {
     const players: Player[] = [
-      createPlayer({ id: 0, name: 'Alice', money: -50, properties: [1] }),
+      createPlayer({ id: 0, name: 'Alice', money: -50, properties: [1], getOutOfJailFreeCards: ['chance'] }),
       createPlayer({ id: 1, name: 'Bob', money: 200, properties: [3] }),
     ]
     const propertyOwners = { 1: 0, 3: 1 }
@@ -33,6 +33,8 @@ describe('resolveBankruptcies', () => {
     expect(result.players[0].isBankrupt).toBe(true)
     expect(result.players[0].money).toBe(0)
     expect(result.players[0].properties).toEqual([])
+    expect(result.players[0].getOutOfJailFreeCards).toEqual([])
+    expect(result.returnedJailCards).toEqual(['chance'])
     expect(result.propertyOwners[1]).toBeUndefined()
     expect(result.mortgagedProperties[1]).toBeUndefined()
     expect(result.propertyHouses[1]).toBeUndefined()
@@ -210,7 +212,7 @@ describe('findCreditorForPlayer', () => {
 describe('resolveSingleBankruptcy', () => {
   it('only bankrupts the targeted player, not other negative-money players', () => {
     const players: Player[] = [
-      createPlayer({ id: 0, name: 'Alice', money: -50, properties: [1] }),
+      createPlayer({ id: 0, name: 'Alice', money: -50, properties: [1], getOutOfJailFreeCards: ['community-chest'] }),
       createPlayer({ id: 1, name: 'Bob', money: -30, properties: [3] }),
       createPlayer({ id: 2, name: 'Charlie', money: 500 }),
     ]
@@ -224,6 +226,8 @@ describe('resolveSingleBankruptcy', () => {
     expect(result.players[0].isBankrupt).toBe(true)
     expect(result.players[0].money).toBe(0)
     expect(result.players[0].properties).toEqual([])
+    expect(result.players[0].getOutOfJailFreeCards).toEqual([])
+    expect(result.returnedJailCards).toEqual(['community-chest'])
     // Bob should NOT be affected - still negative but not bankrupt
     expect(result.players[1].isBankrupt).toBe(false)
     expect(result.players[1].money).toBe(-30)

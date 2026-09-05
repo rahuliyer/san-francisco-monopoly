@@ -144,6 +144,28 @@ describe("game engine (reducer)", () => {
       expect(next.communityChestDeck.cards.map((card) => card.id)).toEqual([2, 16])
     })
 
+    it("returns every held jail card when its player goes bankrupt", () => {
+      const bankruptPlayer = {
+        ...createPlayer(0, "P0", 0),
+        money: -1,
+        getOutOfJailFreeCards: ["chance" as const, "community-chest" as const],
+      }
+      const otherPlayer = createPlayer(1, "P1", 1)
+      const state = baseState({
+        players: [bankruptPlayer, otherPlayer],
+        currentPlayerIndex: 0,
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [7]),
+        communityChestDeck: createDeckFromIds(COMMUNITY_CHEST_CARDS, [2]),
+      })
+
+      const next = gameReducer(state, { type: "END_TURN" }, deps())
+
+      expect(next.players[0].isBankrupt).toBe(true)
+      expect(next.players[0].getOutOfJailFreeCards).toEqual([])
+      expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7, 11])
+      expect(next.communityChestDeck.cards.map((card) => card.id)).toEqual([2, 16])
+    })
+
     it("is a no-op when the player has no card", () => {
       const jailed = { ...createPlayer(0, "P0", 0), inJail: true, getOutOfJailFreeCards: [] }
       const state = baseState({ players: [jailed], currentPlayerIndex: 0 })

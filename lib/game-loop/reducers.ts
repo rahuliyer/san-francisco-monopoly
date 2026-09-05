@@ -8,6 +8,7 @@ import { createPlayer, type Player } from "@/lib/models/player"
 import { BOARD_SPACES, getSpacesByColorGroup } from "@/lib/models/board"
 import {
   drawCard,
+  returnHeldJailCardsToDecks,
   returnCardToDeck,
   CHANCE_CARDS,
   COMMUNITY_CHEST_CARDS,
@@ -850,8 +851,14 @@ export function gameReducer(
   )
 
   if (resolution.hasChanges) {
+    const returnedDecks = returnHeldJailCardsToDecks(
+      newState.chanceDeck,
+      newState.communityChestDeck,
+      resolution.returnedJailCards
+    )
     newState = {
       ...newState,
+      ...returnedDecks,
       players: resolution.players,
       propertyOwners: resolution.propertyOwners,
       mortgagedProperties: resolution.mortgagedProperties,
