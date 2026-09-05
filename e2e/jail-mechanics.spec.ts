@@ -1,4 +1,15 @@
 import { test, expect, Page } from '@playwright/test';
+import type { DeterministicGameConfig } from '../lib/state/test-utils';
+
+async function startGameWithConfig(page: Page, config: DeterministicGameConfig) {
+  await page.addInitScript((config) => {
+    (window as Window & { __DETERMINISTIC_GAME_CONFIG__?: DeterministicGameConfig })
+      .__DETERMINISTIC_GAME_CONFIG__ = config;
+  }, config);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play Now' }).click();
+  await page.getByRole('button', { name: 'START GAME' }).click();
+}
 
 // Helper function to close any open modals
 async function closeAnyModal(page: Page) {
@@ -179,39 +190,44 @@ test.describe('Jail Mechanics', () => {
     expect(true).toBe(true);
   });
 
-  test('should show roll result when rolling for doubles in jail', async ({ page }) => {
-    // Play until current player goes to jail
-    for (let i = 0; i < 10; i++) {
-      const rollBtn = await waitForRollButton(page);
-      await rollBtn.click();
-      await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+  // Deterministically place Player 1 in jail so the "roll for doubles" flow is
+  // exercised without relying on random dice landing a player in Alcatraz.
+  // (The previous version played up to 10 random turns and intermittently failed
+  // when RNG produced a final-turn no-doubles roll, where neither message shows.)
+  test('shows the roll result and keeps the player jailed on a non-doubles roll', async ({ page }) => {
+    await startGameWithConfig(page, {
+      players: [
+        { name: 'Player 1', tokenIndex: 0, inJail: true, jailTurns: 0 },
+        { name: 'Player 2', tokenIndex: 1 },
+      ],
+      diceSequence: [[2, 3]],
+    });
 
-      await page.waitForTimeout(1500);
-      await closeAnyModal(page);
-      await page.waitForTimeout(1000);
+    const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
+    await expect(rollForDoubles).toBeVisible({ timeout: 10000 });
+    await rollForDoubles.click();
 
-      // Check if current player is now in jail
-      const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
-      if (await rollForDoubles.isVisible({ timeout: 500 }).catch(() => false)) {
-        // Roll for doubles
-        await rollForDoubles.click();
+    await expect(page.getByText('Rolled: 5')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('No doubles - still in Alcatraz')).toBeVisible({ timeout: 5000 });
+  });
 
-        // Wait for roll to complete
-        await expect(page.getByText(/Rolled: \d+/)).toBeVisible({ timeout: 5000 });
+  test('frees the player from jail when they roll doubles', async ({ page }) => {
+    await startGameWithConfig(page, {
+      players: [
+        { name: 'Player 1', tokenIndex: 0, inJail: true, jailTurns: 0 },
+        { name: 'Player 2', tokenIndex: 1 },
+      ],
+      diceSequence: [[3, 3]],
+    });
 
-        // Should show doubles result or "still in Alcatraz" message
-        const doublesMessage = page.getByText("Doubles! You're free!");
-        const stillInJail = page.getByText('No doubles - still in Alcatraz');
+    const rollForDoubles = page.getByRole('button', { name: 'Roll for Doubles' });
+    await expect(rollForDoubles).toBeVisible({ timeout: 10000 });
+    await rollForDoubles.click();
 
-        // One of these should be visible
-        const isDoubles = await doublesMessage.isVisible().catch(() => false);
-        const isStillJailed = await stillInJail.isVisible().catch(() => false);
-
-        expect(isDoubles || isStillJailed).toBe(true);
-        return;
-      }
-    }
-    
-    expect(true).toBe(true);
+    await expect(page.getByText('Rolled: 6')).toBeVisible({ timeout: 5000 });
+    // Rolling doubles releases the player: the jail indicator and the
+    // "Roll for Doubles" prompt both disappear.
+    await expect(page.getByText('In Alcatraz')).not.toBeVisible({ timeout: 5000 });
+    await expect(rollForDoubles).not.toBeVisible({ timeout: 5000 });
   });
 });
