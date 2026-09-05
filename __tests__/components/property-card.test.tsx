@@ -283,6 +283,22 @@ describe('PropertyCard component', () => {
       expect(mockOnMortgage).toHaveBeenCalledTimes(1)
     })
 
+    it('should disable mortgage when buildings in the group block it', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          owner={mockPlayer}
+          onClose={mockOnClose}
+          onMortgage={mockOnMortgage}
+          canMortgage={false}
+          mortgageMessage="Sell all houses in this neighborhood first"
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /mortgage for \$30/i })).toBeDisabled()
+      expect(screen.getByText(/sell all houses in this neighborhood first/i)).toBeInTheDocument()
+    })
+
     it('should show disabled unmortgage button when player cannot afford', () => {
       render(
         <PropertyCard

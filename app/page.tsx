@@ -22,9 +22,15 @@ import {
 } from "@/lib/game-data"
 import { useGameStore } from "@/components/game-store-context"
 import { type GameState, getRandomInitialDice } from "@/lib/game-store"
+import { gameReducer } from "@/lib/game-loop/reducers"
+import { actions as gameActions, type GameAction } from "@/lib/game-loop"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
+import {
+  canBuildHouse as checkCanBuildHouse,
+  canMortgage as checkCanMortgage,
+} from "@/lib/mechanics/property-actions"
 import { LiquidationModal } from "@/components/liquidation-modal"
 
 const {
@@ -52,6 +58,20 @@ export default function MonopolyGame() {
   const setGameState = useCallback(
     (updater: (prev: GameState) => GameState) => {
       store.setState(updater)
+    },
+    [store]
+  )
+
+  // Dispatch a game action through the pure reducer, which is the single source
+  // of truth for these state transitions. The reducer only consumes the dice
+  // roller for ROLL_DICE, so a lightweight adapter is sufficient here.
+  const dispatch = useCallback(
+    (action: GameAction) => {
+      store.setState((prev) =>
+        gameReducer(prev, action, {
+          diceRoller: { roll: () => store.getDiceRoller()() },
+        })
+      )
     },
     [store]
   )
@@ -180,108 +200,14 @@ export default function MonopolyGame() {
   }, [])
 
   const handleTrade = useCallback((trade: TradePayload) => {
-    let logMessage = ""
-    let tradeApplied = false
-
-    setGameState((prev) => {
-      const currentPlayer = prev.players[prev.currentPlayerIndex]
-      const partnerIndex = prev.players.findIndex((player) => player.id === trade.partnerId)
-      if (partnerIndex === -1 || currentPlayer.id === trade.partnerId) {
-        return prev
-      }
-
-      const partner = prev.players[partnerIndex]
-      if (currentPlayer.isBankrupt || partner.isBankrupt) {
-        return prev
-      }
-      const offeredCash = trade.offerCash
-      const requestedCash = trade.requestCash
-
-      if (offeredCash > currentPlayer.money || requestedCash > partner.money) {
-        return prev
-      }
-
-      const validOfferPropertyIds = trade.offerPropertyIds.filter(
-        (propertyId) => prev.propertyOwners[propertyId] === currentPlayer.id
-      )
-      const validRequestPropertyIds = trade.requestPropertyIds.filter(
-        (propertyId) => prev.propertyOwners[propertyId] === partner.id
-      )
-
-      if (
-        validOfferPropertyIds.length === 0 &&
-        validRequestPropertyIds.length === 0 &&
-        offeredCash === 0 &&
-        requestedCash === 0
-      ) {
-        return prev
-      }
-
-      const updatedPropertyOwners = { ...prev.propertyOwners }
-      validOfferPropertyIds.forEach((propertyId) => {
-        updatedPropertyOwners[propertyId] = partner.id
-      })
-      validRequestPropertyIds.forEach((propertyId) => {
-        updatedPropertyOwners[propertyId] = currentPlayer.id
-      })
-
-      const propertiesByPlayer: Record<number, number[]> = {}
-      Object.entries(updatedPropertyOwners).forEach(([spaceId, ownerId]) => {
-        const owner = Number(ownerId)
-        if (!propertiesByPlayer[owner]) {
-          propertiesByPlayer[owner] = []
-        }
-        propertiesByPlayer[owner].push(Number(spaceId))
-      })
-
-      const updatedPlayers = prev.players.map((player) => {
-        let cashDelta = 0
-        if (player.id === currentPlayer.id) {
-          cashDelta = -offeredCash + requestedCash
-        } else if (player.id === partner.id) {
-          cashDelta = -requestedCash + offeredCash
-        }
-        return {
-          ...player,
-          money: player.money + cashDelta,
-          properties: propertiesByPlayer[player.id] || [],
-        }
-      })
-
-      const describeItems = (propertyIds: number[], cashAmount: number) => {
-        const names = propertyIds
-          .map((propertyId) => BOARD_SPACES.find((space) => space.id === propertyId)?.name)
-          .filter(Boolean) as string[]
-        const items: string[] = []
-        if (names.length > 0) {
-          items.push(names.join(", "))
-        }
-        if (cashAmount > 0) {
-          items.push(`$${cashAmount}`)
-        }
-        return items.length > 0 ? items.join(" + ") : "no assets"
-      }
-
-      logMessage = `${currentPlayer.name} traded with ${partner.name}: gave ${describeItems(
-        validOfferPropertyIds,
-        offeredCash
-      )} for ${describeItems(validRequestPropertyIds, requestedCash)}.`
-      tradeApplied = true
-
-      return {
-        ...prev,
-        players: updatedPlayers,
-        propertyOwners: updatedPropertyOwners,
-      }
-    })
-
-    if (tradeApplied) {
-      if (logMessage) {
-        addLog(logMessage)
-      }
+    // The trade reducer validates ownership/affordability and returns the same
+    // state reference when the trade is rejected; only close the modal if it applied.
+    const before = store.getState()
+    dispatch(gameActions.proposeTrade(trade))
+    if (store.getState() !== before) {
       setIsTradeOpen(false)
     }
-  }, [addLog])
+  }, [store, dispatch])
 
   const handleRoll = useCallback(() => {
     if (gameState.gameOver) {
@@ -744,20 +670,13 @@ export default function MonopolyGame() {
     const space = gameState.selectedSpace
     if (!space) return
 
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
-    addLog(`${currentPlayer.name} passed on buying ${space.name}`)
-
-    setGameState((prev) => ({
-      ...prev,
-      selectedSpace: null,
-      awaitingPropertyDecision: false,
-    }))
+    dispatch(gameActions.passProperty())
 
     // Complete action after passing (may roll again if doubles)
     endTurnTimeoutRef.current = setTimeout(() => {
       handleActionComplete()
     }, 500)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleActionComplete])
+  }, [gameState.selectedSpace, handleActionComplete, dispatch])
 
   const handleCloseSpecialCard = useCallback(() => {
     setGameState((prev) => {
@@ -909,75 +828,24 @@ export default function MonopolyGame() {
       return
     }
 
-    setGameState((prev) => {
-      const updatedPlayers = [...prev.players]
-      updatedPlayers[prev.currentPlayerIndex] = {
-        ...updatedPlayers[prev.currentPlayerIndex],
-        money: updatedPlayers[prev.currentPlayerIndex].money - space.price!,
-        properties: [...updatedPlayers[prev.currentPlayerIndex].properties, space.id],
-      }
-      return {
-        ...prev,
-        players: updatedPlayers,
-        propertyOwners: {
-          ...prev.propertyOwners,
-          [space.id]: prev.currentPlayerIndex,
-        },
-        selectedSpace: null,
-        awaitingPropertyDecision: false,
-      }
-    })
-    addLog(`${currentPlayer.name} bought ${space.name} for $${space.price}`)
+    dispatch(gameActions.buyProperty(space.id))
 
     // Complete action after buying (may roll again if doubles)
     endTurnTimeoutRef.current = setTimeout(() => {
       handleActionComplete()
     }, 500)
-  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleActionComplete])
+  }, [gameState.selectedSpace, gameState.players, gameState.currentPlayerIndex, addLog, handleActionComplete, dispatch])
 
   const handleMortgageProperty = useCallback(() => {
     const space = gameState.selectedSpace
     if (!space || space.mortgage === undefined) return
 
-    const ownerId = gameState.propertyOwners[space.id]
-    if (ownerId !== gameState.currentPlayerIndex) return
-    if (gameState.mortgagedProperties[space.id]) return
-
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
-
-    setGameState((prev) => {
-      const updatedPlayers = [...prev.players]
-      updatedPlayers[prev.currentPlayerIndex] = {
-        ...updatedPlayers[prev.currentPlayerIndex],
-        money: updatedPlayers[prev.currentPlayerIndex].money + space.mortgage!,
-      }
-      return {
-        ...prev,
-        players: updatedPlayers,
-        mortgagedProperties: {
-          ...prev.mortgagedProperties,
-          [space.id]: true,
-        },
-      }
-    })
-
-    addLog(`${currentPlayer.name} mortgaged ${space.name} for $${space.mortgage}`)
-  }, [
-    gameState.selectedSpace,
-    gameState.propertyOwners,
-    gameState.mortgagedProperties,
-    gameState.currentPlayerIndex,
-    gameState.players,
-    addLog,
-  ])
+    dispatch(gameActions.mortgage(space.id))
+  }, [gameState.selectedSpace, dispatch])
 
   const handleUnmortgageProperty = useCallback(() => {
     const space = gameState.selectedSpace
     if (!space || space.mortgage === undefined) return
-
-    const ownerId = gameState.propertyOwners[space.id]
-    if (ownerId !== gameState.currentPlayerIndex) return
-    if (!gameState.mortgagedProperties[space.id]) return
 
     const mortgageCost = calculateUnmortgageCost(space.mortgage)
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
@@ -986,84 +854,21 @@ export default function MonopolyGame() {
       return
     }
 
-    setGameState((prev) => {
-      const updatedPlayers = [...prev.players]
-      updatedPlayers[prev.currentPlayerIndex] = {
-        ...updatedPlayers[prev.currentPlayerIndex],
-        money: updatedPlayers[prev.currentPlayerIndex].money - mortgageCost,
-      }
-      const updatedMortgaged = { ...prev.mortgagedProperties }
-      delete updatedMortgaged[space.id]
-      return {
-        ...prev,
-        players: updatedPlayers,
-        mortgagedProperties: updatedMortgaged,
-      }
-    })
-
-    addLog(`${currentPlayer.name} lifted the mortgage on ${space.name} for $${mortgageCost}`)
+    dispatch(gameActions.unmortgage(space.id))
   }, [
     gameState.selectedSpace,
-    gameState.propertyOwners,
-    gameState.mortgagedProperties,
-    gameState.currentPlayerIndex,
     gameState.players,
+    gameState.currentPlayerIndex,
     addLog,
+    dispatch,
   ])
 
   const handleBuildHouse = useCallback(() => {
     const space = gameState.selectedSpace
     if (!space || space.type !== "property" || !space.houseCost) return
 
-    const ownerId = gameState.propertyOwners[space.id]
-    if (ownerId !== gameState.currentPlayerIndex) return
-
-    const groupSpaces = getSpacesByColorGroup(space.colorGroup)
-    const ownsAllInGroup = groupSpaces.every(
-      (groupSpace) => gameState.propertyOwners[groupSpace.id] === ownerId
-    )
-    if (!ownsAllInGroup) return
-
-    const currentHouseCount = gameState.propertyHouses[space.id] ?? 0
-    if (currentHouseCount >= MAX_HOUSES) return
-
-    const minHouseCount = Math.min(
-      ...groupSpaces.map((groupSpace) => gameState.propertyHouses[groupSpace.id] ?? 0)
-    )
-    if (currentHouseCount !== minHouseCount) return
-
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
-    if (currentPlayer.isBankrupt) return
-    if (currentPlayer.money < space.houseCost) return
-
-    const nextHouseCount = currentHouseCount + 1
-    setGameState((prev) => {
-      const updatedPlayers = [...prev.players]
-      updatedPlayers[ownerId] = {
-        ...updatedPlayers[ownerId],
-        money: updatedPlayers[ownerId].money - space.houseCost!,
-      }
-
-      return {
-        ...prev,
-        players: updatedPlayers,
-        propertyHouses: {
-          ...prev.propertyHouses,
-          [space.id]: nextHouseCount,
-        },
-      }
-    })
-
-    const buildingLabel = nextHouseCount >= MAX_HOUSES ? "hotel" : "house"
-    addLog(`${currentPlayer.name} built a ${buildingLabel} on ${space.name} for $${space.houseCost}`)
-  }, [
-    gameState.selectedSpace,
-    gameState.propertyOwners,
-    gameState.propertyHouses,
-    gameState.currentPlayerIndex,
-    gameState.players,
-    addLog,
-  ])
+    dispatch(gameActions.buildHouse(space.id))
+  }, [gameState.selectedSpace, dispatch])
 
   const handleViewPlayerProperties = useCallback((player: Player) => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
@@ -1430,7 +1235,9 @@ export default function MonopolyGame() {
       ? gameState.propertyOwners[gameState.selectedSpace.id]
       : undefined
   const selectedSpaceOwner =
-    selectedSpaceOwnerId !== undefined ? gameState.players[selectedSpaceOwnerId] : undefined
+    selectedSpaceOwnerId !== undefined
+      ? gameState.players.find((player) => player.id === selectedSpaceOwnerId)
+      : undefined
   const selectedSpaceIsMortgaged = gameState.selectedSpace
     ? gameState.mortgagedProperties[gameState.selectedSpace.id] === true
     : false
@@ -1440,39 +1247,32 @@ export default function MonopolyGame() {
       ? calculateUnmortgageCost(selectedSpaceMortgageValue)
       : undefined
   const isSelectedSpaceOwnedByCurrentPlayer =
-    selectedSpaceOwnerId === gameState.currentPlayerIndex
+    selectedSpaceOwnerId === currentPlayer.id
 
   const selectedSpaceHouseCount = gameState.selectedSpace
     ? gameState.propertyHouses[gameState.selectedSpace.id] ?? 0
     : 0
   const canManageHouses =
     gameState.selectedSpace?.type === "property" &&
-    selectedSpaceOwnerId === gameState.currentPlayerIndex
+    isSelectedSpaceOwnedByCurrentPlayer
   let canBuildHouse = false
   let canBuildHotel = false
   let buildMessage: string | undefined
 
   if (canManageHouses && gameState.selectedSpace?.houseCost) {
-    const groupSpaces = getSpacesByColorGroup(gameState.selectedSpace.colorGroup)
-    const ownsAllInGroup =
-      groupSpaces.length > 0 &&
-      groupSpaces.every(
-        (groupSpace) => gameState.propertyOwners[groupSpace.id] === gameState.currentPlayerIndex
-      )
-    const groupHouseCounts = groupSpaces.map(
-      (groupSpace) => gameState.propertyHouses[groupSpace.id] ?? 0
+    const buildCheck = checkCanBuildHouse(
+      currentPlayer,
+      gameState.selectedSpace,
+      selectedSpaceOwnerId,
+      gameState.propertyOwners,
+      gameState.propertyHouses,
+      gameState.mortgagedProperties
     )
-    const minHouseCount = groupHouseCounts.length ? Math.min(...groupHouseCounts) : 0
-    const isEvenBuild = selectedSpaceHouseCount === minHouseCount
 
-    if (!ownsAllInGroup) {
-      buildMessage = "Own all properties in this neighborhood to build."
-    } else if (selectedSpaceHouseCount >= MAX_HOUSES) {
-      buildMessage = "This property already has a hotel."
-    } else if (!isEvenBuild) {
-      buildMessage = "Build evenly across the neighborhood."
-    } else if (currentPlayer.money < gameState.selectedSpace.houseCost) {
-      buildMessage = `Need $${gameState.selectedSpace.houseCost} to build.`
+    if (!buildCheck.allowed) {
+      buildMessage = buildCheck.reason
+        ? `${buildCheck.reason}.`
+        : "Building is not available."
     } else {
       canBuildHouse = selectedSpaceHouseCount < 4
       canBuildHotel = selectedSpaceHouseCount === 4
@@ -1501,11 +1301,20 @@ export default function MonopolyGame() {
     currentPlayer.isBankrupt ||
     activePlayersCount < 2
 
-  const canMortgageSelectedSpace =
-    gameState.selectedSpace &&
-    selectedSpaceMortgageValue !== undefined &&
-    isSelectedSpaceOwnedByCurrentPlayer &&
-    !selectedSpaceIsMortgaged
+  const mortgageCheck = gameState.selectedSpace
+    ? checkCanMortgage(
+        currentPlayer,
+        gameState.selectedSpace,
+        selectedSpaceOwnerId,
+        gameState.propertyHouses,
+        gameState.mortgagedProperties
+      )
+    : { allowed: false, reason: undefined }
+  const canMortgageSelectedSpace = mortgageCheck.allowed
+  const mortgageMessage =
+    isSelectedSpaceOwnedByCurrentPlayer && !selectedSpaceIsMortgaged
+      ? mortgageCheck.reason
+      : undefined
 
   const canUnmortgageSelectedSpace =
     gameState.selectedSpace &&
@@ -1683,6 +1492,7 @@ export default function MonopolyGame() {
           onMortgage={handleMortgageProperty}
           onUnmortgage={handleUnmortgageProperty}
           canMortgage={!!canMortgageSelectedSpace}
+          mortgageMessage={mortgageMessage}
           canUnmortgage={!!canUnmortgageSelectedSpace}
           canAffordUnmortgage={!!canAffordUnmortgage}
           isMortgaged={selectedSpaceIsMortgaged}
