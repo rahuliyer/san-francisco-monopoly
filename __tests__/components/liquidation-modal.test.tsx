@@ -14,6 +14,7 @@ const createPlayer = (overrides: Partial<Player> = {}): Player => ({
   inJail: false,
   jailTurns: 0,
   isBankrupt: false,
+  getOutOfJailFreeCards: [],
   ...overrides,
 })
 

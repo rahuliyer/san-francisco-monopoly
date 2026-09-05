@@ -15,8 +15,6 @@ import {
   Space,
   BOARD_SPACES,
   createPlayer,
-  drawChanceCard,
-  drawCommunityChestCard,
   calculateRent,
   getSpacesByColorGroup,
 } from "@/lib/game-data"
@@ -27,6 +25,14 @@ import { actions as gameActions, type GameAction } from "@/lib/game-loop"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
+import {
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+  createShuffledDeck,
+  drawCard,
+  returnHeldJailCardsToDecks,
+  type CardDeckType,
+} from "@/lib/models/card"
 import {
   calculateHouseSellPrice,
   canBuildHouse as checkCanBuildHouse,
@@ -52,6 +58,43 @@ const {
 
 function calculateUnmortgageCost(mortgageValue: number): number {
   return Math.ceil(mortgageValue * (1 + MORTGAGE_INTEREST_RATE))
+}
+
+function drawAndApplyCard(
+  state: GameState,
+  sourceDeck: CardDeckType
+): GameState {
+  const deck = sourceDeck === "chance"
+    ? state.chanceDeck
+    : state.communityChestDeck
+  const { card, newDeck } = drawCard(deck)
+  const { updatedPlayers, repairsSummary } = applyCardEffect(
+    card,
+    state.players,
+    state.currentPlayerIndex,
+    state.propertyOwners,
+    state.propertyHouses,
+    sourceDeck
+  )
+  const currentPlayer = state.players[state.currentPlayerIndex]
+  const newLogEntries = [`Drew: ${card.text}`]
+
+  if (repairsSummary) {
+    const details = formatRepairsSummary(repairsSummary)
+    newLogEntries.push(
+      `${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`
+    )
+  }
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    drawnCard: card,
+    gameLog: [...state.gameLog, ...newLogEntries].slice(-LOG_HISTORY_SIZE),
+    ...(sourceDeck === "chance"
+      ? { chanceDeck: newDeck }
+      : { communityChestDeck: newDeck }),
+  }
 }
 
 export default function MonopolyGame() {
@@ -92,6 +135,8 @@ export default function MonopolyGame() {
     const players = playerSetups.map((setup, i) =>
       createPlayer(i, setup.name, setup.tokenIndex)
     )
+    const chanceDeck = createShuffledDeck(CHANCE_CARDS)
+    const communityChestDeck = createShuffledDeck(COMMUNITY_CHEST_CARDS)
     setGameState((prev) => ({
       ...prev,
       players,
@@ -99,6 +144,8 @@ export default function MonopolyGame() {
       propertyOwners: {},
       mortgagedProperties: {},
       propertyHouses: {},
+      chanceDeck,
+      communityChestDeck,
       gameLog: ["Game started! " + players[0].name + " goes first."],
       gameOver: false,
       winnerId: null,
@@ -192,6 +239,18 @@ export default function MonopolyGame() {
 
     addLog(`${currentPlayer.name} paid $${JAIL_FEE} to leave Alcatraz`)
   }, [gameState.players, gameState.currentPlayerIndex, addLog])
+
+  const handleUseJailCard = useCallback(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (
+      !currentPlayer ||
+      !currentPlayer.inJail ||
+      currentPlayer.getOutOfJailFreeCards.length === 0
+    ) {
+      return
+    }
+    dispatch(gameActions.useJailCard())
+  }, [gameState.players, gameState.currentPlayerIndex, dispatch])
 
   const handleOpenTrade = useCallback(() => {
     setIsTradeOpen(true)
@@ -316,25 +375,7 @@ export default function MonopolyGame() {
             })
             addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
           } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
-            const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
-            addLog(`Drew: ${card.text}`)
-
-            setGameState((prev) => {
-              const { updatedPlayers, repairsSummary } = applyCardEffect(
-                card,
-                prev.players,
-                prev.currentPlayerIndex,
-                prev.propertyOwners,
-                prev.propertyHouses
-              )
-
-              if (repairsSummary) {
-                const details = formatRepairsSummary(repairsSummary)
-                setTimeout(() => addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`), 0)
-              }
-
-              return { ...prev, players: updatedPlayers, drawnCard: card }
-            })
+            setGameState((prev) => drawAndApplyCard(prev, landedSpace.type))
           }
 
           // Check if we need to wait for modal interaction or auto-end turn
@@ -603,25 +644,7 @@ export default function MonopolyGame() {
         })
         addLog(`${currentPlayer.name} paid $${taxAmount} in taxes`)
       } else if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
-        const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
-        addLog(`Drew: ${card.text}`)
-
-        setGameState((prev) => {
-          const { updatedPlayers, repairsSummary } = applyCardEffect(
-            card,
-            prev.players,
-            prev.currentPlayerIndex,
-            prev.propertyOwners,
-            prev.propertyHouses
-          )
-
-          if (repairsSummary) {
-            const details = formatRepairsSummary(repairsSummary)
-            setTimeout(() => addLog(`${currentPlayer.name} paid $${repairsSummary.total} for repairs${details}`), 0)
-          }
-
-          return { ...prev, players: updatedPlayers, drawnCard: card }
-        })
+        setGameState((prev) => drawAndApplyCard(prev, landedSpace.type))
       }
 
       // Check if we need to wait for modal interaction or auto-complete action
@@ -1041,6 +1064,11 @@ export default function MonopolyGame() {
 
       const nextPlayers = resolution.hasChanges ? resolution.players : prev.players
       const winnerId = getWinnerId(nextPlayers)
+      const returnedDecks = returnHeldJailCardsToDecks(
+        prev.chanceDeck,
+        prev.communityChestDeck,
+        resolution.returnedJailCards
+      )
 
       const playerName = prev.players.find((p) => p.id === playerId)?.name
       if (playerName) {
@@ -1056,6 +1084,7 @@ export default function MonopolyGame() {
 
       return {
         ...prev,
+        ...returnedDecks,
         players: resolution.players,
         propertyOwners: resolution.propertyOwners,
         mortgagedProperties: resolution.mortgagedProperties,
@@ -1174,15 +1203,23 @@ export default function MonopolyGame() {
           const nextPlayers = resolution.players
           const winnerId = getWinnerId(nextPlayers)
 
-          setGameState((prev) => ({
-            ...prev,
-            players: resolution.players,
-            propertyOwners: resolution.propertyOwners,
-            mortgagedProperties: resolution.mortgagedProperties,
-            propertyHouses: resolution.propertyHouses,
-            gameOver: winnerId !== null,
-            winnerId,
-          }))
+          setGameState((prev) => {
+            const returnedDecks = returnHeldJailCardsToDecks(
+              prev.chanceDeck,
+              prev.communityChestDeck,
+              resolution.returnedJailCards
+            )
+            return {
+              ...prev,
+              ...returnedDecks,
+              players: resolution.players,
+              propertyOwners: resolution.propertyOwners,
+              mortgagedProperties: resolution.mortgagedProperties,
+              propertyHouses: resolution.propertyHouses,
+              gameOver: winnerId !== null,
+              winnerId,
+            }
+          })
 
           const playerName = gameState.players.find((p) => p.id === player.id)?.name
           if (playerName) {
@@ -1394,6 +1431,8 @@ export default function MonopolyGame() {
           jailTurns={currentPlayer.jailTurns}
           onPayJailFee={handlePayJailFee}
           canAffordJailFee={currentPlayer.money >= JAIL_FEE}
+          jailFreeCards={currentPlayer.getOutOfJailFreeCards.length}
+          onUseJailCard={handleUseJailCard}
           onTrade={handleOpenTrade}
           tradeDisabled={tradeDisabled}
           gameOver={gameState.gameOver}

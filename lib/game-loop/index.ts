@@ -175,6 +175,9 @@ export class GameLoop {
       case "PAY_JAIL_FEE":
         return canPayJailFee(currentPlayer)
 
+      case "USE_JAIL_CARD":
+        return currentPlayer.inJail && currentPlayer.getOutOfJailFreeCards.length > 0
+
       case "PROPOSE_TRADE":
         return (
           !state.gameOver &&

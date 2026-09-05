@@ -1,4 +1,5 @@
 import { Player, BOARD_SPACES } from "@/lib/game-data"
+import type { CardDeckType } from "@/lib/models/card"
 
 /**
  * Calculates the total liquidation value of a player's assets.
@@ -81,6 +82,7 @@ interface BankruptcyResolution {
   mortgagedProperties: Record<number, boolean>
   propertyHouses: Record<number, number>
   newlyBankruptIds: number[]
+  returnedJailCards: CardDeckType[]
   hasChanges: boolean
 }
 
@@ -105,6 +107,7 @@ export function resolveSingleBankruptcy(
       mortgagedProperties,
       propertyHouses,
       newlyBankruptIds: [],
+      returnedJailCards: [],
       hasChanges: false,
     }
   }
@@ -118,6 +121,7 @@ export function resolveSingleBankruptcy(
       inJail: false,
       jailTurns: 0,
       properties: [],
+      getOutOfJailFreeCards: [],
     }
   })
 
@@ -139,6 +143,7 @@ export function resolveSingleBankruptcy(
     mortgagedProperties: updatedMortgagedProperties,
     propertyHouses: updatedPropertyHouses,
     newlyBankruptIds: [playerId],
+    returnedJailCards: [...player.getOutOfJailFreeCards],
     hasChanges: true,
   }
 }
@@ -160,11 +165,15 @@ export function resolveBankruptcies(
       mortgagedProperties,
       propertyHouses,
       newlyBankruptIds,
+      returnedJailCards: [],
       hasChanges: false,
     }
   }
 
   const bankruptSet = new Set(newlyBankruptIds)
+  const returnedJailCards = players
+    .filter((player) => bankruptSet.has(player.id))
+    .flatMap((player) => player.getOutOfJailFreeCards)
   const updatedPlayers = players.map((player) => {
     if (!bankruptSet.has(player.id)) {
       return player
@@ -176,6 +185,7 @@ export function resolveBankruptcies(
       inJail: false,
       jailTurns: 0,
       properties: [],
+      getOutOfJailFreeCards: [],
     }
   })
 
@@ -199,6 +209,7 @@ export function resolveBankruptcies(
     mortgagedProperties: updatedMortgagedProperties,
     propertyHouses: updatedPropertyHouses,
     newlyBankruptIds,
+    returnedJailCards,
     hasChanges: true,
   }
 }

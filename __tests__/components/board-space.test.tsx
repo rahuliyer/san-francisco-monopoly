@@ -25,6 +25,7 @@ describe('BoardSpace component', () => {
     inJail: false,
     jailTurns: 0,
     isBankrupt: false,
+    getOutOfJailFreeCards: [],
   }
 
   const propertySpace = BOARD_SPACES.find(s => s.name === 'Tenderloin')!

@@ -179,5 +179,23 @@ describe('GameControls component', () => {
       expect(screen.queryByRole('button', { name: /roll for doubles/i })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: /roll dice/i })).toBeDisabled()
     })
+
+    it('should not show the Get Out of Jail Free button when the player holds no cards', () => {
+      render(<GameControls {...jailProps} onUseJailCard={jest.fn()} jailFreeCards={0} />)
+      expect(screen.queryByRole('button', { name: /get out of jail free/i })).not.toBeInTheDocument()
+    })
+
+    it('should show the Get Out of Jail Free button with count when a card is held', () => {
+      render(<GameControls {...jailProps} onUseJailCard={jest.fn()} jailFreeCards={2} />)
+      expect(screen.getByRole('button', { name: /get out of jail free \(2\)/i })).toBeInTheDocument()
+    })
+
+    it('should call onUseJailCard when the Get Out of Jail Free button is clicked', () => {
+      const onUseJailCard = jest.fn()
+      render(<GameControls {...jailProps} onUseJailCard={onUseJailCard} jailFreeCards={1} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /get out of jail free/i }))
+      expect(onUseJailCard).toHaveBeenCalledTimes(1)
+    })
   })
 })

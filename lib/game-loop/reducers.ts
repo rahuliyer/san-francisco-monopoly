@@ -8,6 +8,10 @@ import { createPlayer, type Player } from "@/lib/models/player"
 import { BOARD_SPACES, getSpacesByColorGroup } from "@/lib/models/board"
 import {
   drawCard,
+  returnHeldJailCardsToDecks,
+  returnCardToDeck,
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
   type GameCard,
 } from "@/lib/models/card"
 import { applyCardEffect, formatRepairsSummary } from "@/lib/mechanics/cards"
@@ -206,7 +210,8 @@ function rollReducer(
       newState.players,
       newState.currentPlayerIndex,
       newState.propertyOwners,
-      newState.propertyHouses
+      newState.propertyHouses,
+      landedSpace.type
     )
 
     if (result.repairsSummary) {
@@ -526,6 +531,45 @@ function payJailFeeReducer(state: GameState): GameState {
   return updateCurrentPlayer(newState, () => result.player)
 }
 
+/** Use a "Get Out of Jail Free" card reducer */
+function useJailCardReducer(state: GameState): GameState {
+  const currentPlayer = state.players[state.currentPlayerIndex]
+  const [sourceDeck, ...remainingCards] = currentPlayer.getOutOfJailFreeCards
+  if (!currentPlayer.inJail || !sourceDeck) {
+    return state
+  }
+
+  const cardPool = sourceDeck === "chance" ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS
+  const jailCard = cardPool.find(
+    (card) => card.effect.type === "get-out-of-jail-free"
+  )
+  if (!jailCard) {
+    return state
+  }
+
+  let newState = addLog(
+    state,
+    `${currentPlayer.name} used a Get Out of Jail Free card`
+  )
+
+  newState = updateCurrentPlayer(newState, (p) => ({
+    ...p,
+    inJail: false,
+    jailTurns: 0,
+    getOutOfJailFreeCards: remainingCards,
+  }))
+
+  return sourceDeck === "chance"
+    ? { ...newState, chanceDeck: returnCardToDeck(newState.chanceDeck, jailCard) }
+    : {
+        ...newState,
+        communityChestDeck: returnCardToDeck(
+          newState.communityChestDeck,
+          jailCard
+        ),
+      }
+}
+
 /** End turn reducer */
 function endTurnReducer(state: GameState): GameState {
   if (state.gameOver) {
@@ -751,6 +795,10 @@ export function gameReducer(
       newState = payJailFeeReducer(state)
       break
 
+    case "USE_JAIL_CARD":
+      newState = useJailCardReducer(state)
+      break
+
     case "PROPOSE_TRADE":
       newState = tradeReducer(state, action.trade)
       break
@@ -803,8 +851,14 @@ export function gameReducer(
   )
 
   if (resolution.hasChanges) {
+    const returnedDecks = returnHeldJailCardsToDecks(
+      newState.chanceDeck,
+      newState.communityChestDeck,
+      resolution.returnedJailCards
+    )
     newState = {
       ...newState,
+      ...returnedDecks,
       players: resolution.players,
       propertyOwners: resolution.propertyOwners,
       mortgagedProperties: resolution.mortgagedProperties,

@@ -12,6 +12,10 @@ export type CardEffect =
   | { type: "pay-to-players"; amount: number }
   | { type: "repairs"; houseAmount: number; hotelAmount: number }
   | { type: "go-back"; spaces: number }
+  | { type: "get-out-of-jail-free" }
+
+/** Deck a held Get Out of Jail Free card must be returned to. */
+export type CardDeckType = "chance" | "community-chest"
 
 /** Game card definition */
 export interface GameCard {
@@ -44,7 +48,7 @@ export const CHANCE_CARDS: readonly GameCard[] = [
   { id: 8, text: "Your AI startup got acquired by a tech giant! Collect $150.", effect: { type: "collect", amount: 150 } },
   { id: 9, text: "Caught stealing sourdough starter. Go directly to Alcatraz!", effect: { type: "go-to-jail" } },
   { id: 10, text: "Earthquake retrofit required on all properties: Pay $25 per house, $100 per hotel.", effect: { type: "repairs", houseAmount: 25, hotelAmount: 100 } },
-  { id: 11, text: "SFMTA parking ticket on your Painted Lady. Pay $15.", effect: { type: "pay", amount: 15 } },
+  { id: 11, text: "A friend on the Board of Supervisors pulls some strings. Get Out of Alcatraz Free \u2014 keep this card.", effect: { type: "get-out-of-jail-free" } },
   { id: 12, text: "Uber surge pricing! Walk back 3 spaces instead.", effect: { type: "go-back", spaces: 3 } },
   { id: 13, text: "Completed the Bay to Breakers race! Collect $100.", effect: { type: "collect", amount: 100 } },
   { id: 14, text: "Your Tartine croissant recipe went viral on TikTok! Collect $200.", effect: { type: "collect", amount: 200 } },
@@ -69,7 +73,7 @@ export const COMMUNITY_CHEST_CARDS: readonly GameCard[] = [
   { id: 13, text: "Victorian home maintenance on your Painted Ladies: Pay $40 per house, $115 per hotel.", effect: { type: "repairs", houseAmount: 40, hotelAmount: 115 } },
   { id: 14, text: "Won second place in the Boudin sourdough bake-off. Collect $10.", effect: { type: "collect", amount: 10 } },
   { id: 15, text: "Inherited a rent-controlled apartment in the Mission! Collect $100.", effect: { type: "collect", amount: 100 } },
-  { id: 16, text: "Lost your Clipper card. Buy a new MUNI pass: Pay $50.", effect: { type: "pay", amount: 50 } },
+  { id: 16, text: "The Alcatraz tour guide vouches for you. Get Out of Alcatraz Free \u2014 keep this card.", effect: { type: "get-out-of-jail-free" } },
 ] as const
 
 /**
@@ -131,10 +135,72 @@ export function createDeckFromIds(
  */
 export function drawCard(deck: CardDeck): CardDrawResult {
   const card = deck.cards[deck.drawIndex]
+
+  if (!card) {
+    throw new Error("Cannot draw from an empty card deck")
+  }
+
+  if (card.effect.type === "get-out-of-jail-free") {
+    const remainingCards = [
+      ...deck.cards.slice(0, deck.drawIndex),
+      ...deck.cards.slice(deck.drawIndex + 1),
+    ]
+    return {
+      card,
+      newDeck: {
+        cards: remainingCards,
+        drawIndex: remainingCards.length === 0
+          ? 0
+          : deck.drawIndex % remainingCards.length,
+      },
+    }
+  }
+
   const newDrawIndex = (deck.drawIndex + 1) % deck.cards.length
   return {
     card,
     newDeck: { ...deck, drawIndex: newDrawIndex },
+  }
+}
+
+/** Returns a held card to the bottom of its original deck. */
+export function returnCardToDeck(deck: CardDeck, card: GameCard): CardDeck {
+  const cardsInDrawOrder = [
+    ...deck.cards.slice(deck.drawIndex),
+    ...deck.cards.slice(0, deck.drawIndex),
+    card,
+  ]
+  return { cards: cardsInDrawOrder, drawIndex: 0 }
+}
+
+/** Returns held jail cards to the bottom of their respective source decks. */
+export function returnHeldJailCardsToDecks(
+  chanceDeck: CardDeck,
+  communityChestDeck: CardDeck,
+  sources: readonly CardDeckType[]
+): { chanceDeck: CardDeck; communityChestDeck: CardDeck } {
+  let nextChanceDeck = chanceDeck
+  let nextCommunityChestDeck = communityChestDeck
+
+  for (const source of sources) {
+    const cardPool = source === "chance" ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS
+    const jailCard = cardPool.find(
+      (card) => card.effect.type === "get-out-of-jail-free"
+    )
+    if (!jailCard) continue
+
+    if (source === "chance") {
+      if (!nextChanceDeck.cards.some((card) => card.id === jailCard.id)) {
+        nextChanceDeck = returnCardToDeck(nextChanceDeck, jailCard)
+      }
+    } else if (!nextCommunityChestDeck.cards.some((card) => card.id === jailCard.id)) {
+      nextCommunityChestDeck = returnCardToDeck(nextCommunityChestDeck, jailCard)
+    }
+  }
+
+  return {
+    chanceDeck: nextChanceDeck,
+    communityChestDeck: nextCommunityChestDeck,
   }
 }
 

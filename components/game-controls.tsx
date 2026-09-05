@@ -13,6 +13,8 @@ interface GameControlsProps {
   jailTurns?: number
   onPayJailFee?: () => void
   canAffordJailFee?: boolean
+  jailFreeCards?: number
+  onUseJailCard?: () => void
   onTrade?: () => void
   tradeDisabled?: boolean
   gameOver?: boolean
@@ -29,6 +31,8 @@ export function GameControls({
   jailTurns = 0,
   onPayJailFee,
   canAffordJailFee = true,
+  jailFreeCards = 0,
+  onUseJailCard,
   onTrade,
   tradeDisabled = false,
   gameOver = false,
@@ -100,6 +104,16 @@ export function GameControls({
                   className="w-full border-[#c94c4c]/50 text-[#8b3a3a] hover:bg-[#c94c4c]/10 font-serif"
                 >
                   Pay $50 to Leave
+                </Button>
+              )}
+              {onUseJailCard && jailFreeCards > 0 && (
+                <Button
+                  onClick={onUseJailCard}
+                  disabled={rolling || hasRolled}
+                  variant="outline"
+                  className="w-full border-[#2c6e4f]/50 text-[#2c6e4f] hover:bg-[#2c6e4f]/10 font-serif"
+                >
+                  Use Get Out of Jail Free ({jailFreeCards})
                 </Button>
               )}
             </>

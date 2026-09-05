@@ -17,6 +17,7 @@ describe('VictoryModal', () => {
     inJail: false,
     jailTurns: 0,
     isBankrupt: false,
+    getOutOfJailFreeCards: [],
     ...overrides,
   })
 

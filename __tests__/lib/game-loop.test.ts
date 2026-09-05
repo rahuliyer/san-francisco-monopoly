@@ -87,6 +87,94 @@ describe("game engine (reducer)", () => {
     })
   })
 
+  describe("Get Out of Jail Free", () => {
+    it("grants a card when the effect is drawn and lets the player use it to leave jail", () => {
+      // Chance card id 11 is a Get Out of Jail Free card. Start on Chance (7)
+      // reached with a 2 from position 5.
+      const { gameLoop } = createDeterministicGame({
+        players: [{ name: "P0", tokenIndex: 0, initialPosition: 5 }],
+        diceSequence: [[1, 1]],
+        chanceOrder: [11],
+      })
+
+      gameLoop.dispatch({ type: "ROLL_DICE" })
+      let state = gameLoop.getState()
+      expect(state.players[0].getOutOfJailFreeCards).toEqual(["chance"])
+      expect(state.chanceDeck.cards.map((card) => card.id)).not.toContain(11)
+    })
+
+    it("releases the player and decrements the card count on USE_JAIL_CARD", () => {
+      const jailed = {
+        ...createPlayer(0, "P0", 0),
+        inJail: true,
+        jailTurns: 1,
+        getOutOfJailFreeCards: ["chance" as const],
+      }
+      const state = baseState({
+        players: [jailed],
+        currentPlayerIndex: 0,
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [7]),
+      })
+
+      const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
+
+      expect(next.players[0].inJail).toBe(false)
+      expect(next.players[0].jailTurns).toBe(0)
+      expect(next.players[0].getOutOfJailFreeCards).toEqual([])
+      expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7, 11])
+    })
+
+    it("returns a held Community Chest card to its original deck", () => {
+      const jailed = {
+        ...createPlayer(0, "P0", 0),
+        inJail: true,
+        getOutOfJailFreeCards: ["community-chest" as const],
+      }
+      const state = baseState({
+        players: [jailed],
+        currentPlayerIndex: 0,
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [7]),
+        communityChestDeck: createDeckFromIds(COMMUNITY_CHEST_CARDS, [2]),
+      })
+
+      const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
+
+      expect(next.players[0].getOutOfJailFreeCards).toEqual([])
+      expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7])
+      expect(next.communityChestDeck.cards.map((card) => card.id)).toEqual([2, 16])
+    })
+
+    it("returns every held jail card when its player goes bankrupt", () => {
+      const bankruptPlayer = {
+        ...createPlayer(0, "P0", 0),
+        money: -1,
+        getOutOfJailFreeCards: ["chance" as const, "community-chest" as const],
+      }
+      const otherPlayer = createPlayer(1, "P1", 1)
+      const state = baseState({
+        players: [bankruptPlayer, otherPlayer],
+        currentPlayerIndex: 0,
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [7]),
+        communityChestDeck: createDeckFromIds(COMMUNITY_CHEST_CARDS, [2]),
+      })
+
+      const next = gameReducer(state, { type: "END_TURN" }, deps())
+
+      expect(next.players[0].isBankrupt).toBe(true)
+      expect(next.players[0].getOutOfJailFreeCards).toEqual([])
+      expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7, 11])
+      expect(next.communityChestDeck.cards.map((card) => card.id)).toEqual([2, 16])
+    })
+
+    it("is a no-op when the player has no card", () => {
+      const jailed = { ...createPlayer(0, "P0", 0), inJail: true, getOutOfJailFreeCards: [] }
+      const state = baseState({ players: [jailed], currentPlayerIndex: 0 })
+
+      const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
+      expect(next).toBe(state)
+    })
+  })
+
   describe("deterministic card draws", () => {
     it("uses the stable player id when charging for repairs", () => {
       const pA = { ...createPlayer(5, "A", 0), position: 5 }

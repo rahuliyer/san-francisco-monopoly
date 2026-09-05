@@ -4,7 +4,14 @@
 import type { GameState } from "@/lib/game-store"
 import { createInitialGameState } from "@/lib/game-store"
 import { createPlayer, type PlayerSetup } from "@/lib/models/player"
-import { createDeck, createDeckFromIds, CHANCE_CARDS, COMMUNITY_CHEST_CARDS, type CardDeck } from "@/lib/models/card"
+import {
+  createDeck,
+  createDeckFromIds,
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+  type CardDeck,
+  type CardDeckType,
+} from "@/lib/models/card"
 import { QueuedDiceRoller, type DiceValues } from "@/lib/mechanics/dice"
 import { GameLoop, type GameLoopDependencies } from "@/lib/game-loop"
 import { GAME_CONSTANTS } from "@/lib/constants"
@@ -25,6 +32,8 @@ export interface DeterministicGameConfig {
     inJail?: boolean
     /** Number of turns already spent in jail */
     jailTurns?: number
+    /** Held cards and the decks they must return to when used. */
+    getOutOfJailFreeCards?: CardDeckType[]
   }>
 
   /** Sequence of dice rolls (consumed in order) */
@@ -68,11 +77,11 @@ export function createDeterministicGame(
   const diceRoller = new QueuedDiceRoller(config.diceSequence ?? [])
 
   // Create card decks
-  const chanceDeck = config.chanceOrder
+  let chanceDeck = config.chanceOrder
     ? createDeckFromIds(CHANCE_CARDS, config.chanceOrder)
     : createDeck(CHANCE_CARDS)
 
-  const communityChestDeck = config.communityChestOrder
+  let communityChestDeck = config.communityChestOrder
     ? createDeckFromIds(COMMUNITY_CHEST_CARDS, config.communityChestOrder)
     : createDeck(COMMUNITY_CHEST_CARDS)
 
@@ -90,8 +99,29 @@ export function createDeterministicGame(
       position: setup.initialPosition ?? 0,
       inJail: setup.inJail ?? false,
       jailTurns: setup.jailTurns ?? 0,
+      getOutOfJailFreeCards: setup.getOutOfJailFreeCards ?? [],
     }
   })
+
+  const heldCardSources = players.flatMap(
+    (player) => player.getOutOfJailFreeCards
+  )
+  if (heldCardSources.includes("chance")) {
+    chanceDeck = {
+      cards: chanceDeck.cards.filter(
+        (card) => card.effect.type !== "get-out-of-jail-free"
+      ),
+      drawIndex: 0,
+    }
+  }
+  if (heldCardSources.includes("community-chest")) {
+    communityChestDeck = {
+      cards: communityChestDeck.cards.filter(
+        (card) => card.effect.type !== "get-out-of-jail-free"
+      ),
+      drawIndex: 0,
+    }
+  }
 
   // Build property maps
   const propertyOwners: Record<number, number> = {}
