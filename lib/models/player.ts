@@ -34,12 +34,16 @@ export interface Player {
   readonly isBankrupt: boolean
   /** Number of held "Get Out of Jail Free" cards. Optional for backward compatibility (treated as 0). */
   readonly getOutOfJailFreeCards?: number
+  /** Whether this seat is controlled by the computer. Optional for backward compatibility (treated as false). */
+  readonly isComputer?: boolean
 }
 
 /** Configuration for creating a new player */
 export interface PlayerSetup {
   name: string
   tokenIndex: number
+  /** Whether this seat is a computer player. Defaults to false. */
+  isComputer?: boolean
 }
 
 /**
@@ -50,7 +54,8 @@ export function createPlayer(
   id: number,
   name: string,
   tokenIndex: number,
-  initialMoney: number = STARTING_MONEY
+  initialMoney: number = STARTING_MONEY,
+  isComputer: boolean = false
 ): Player {
   const token = PLAYER_TOKENS[tokenIndex]
   return {
@@ -65,6 +70,7 @@ export function createPlayer(
     jailTurns: 0,
     isBankrupt: false,
     getOutOfJailFreeCards: 0,
+    isComputer,
   }
 }
 
