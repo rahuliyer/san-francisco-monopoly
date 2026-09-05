@@ -231,7 +231,7 @@ test.describe('Jail Mechanics', () => {
     await expect(rollForDoubles).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('lets a jailed player use a Get Out of Jail Free card to leave', async ({ page }) => {
+  test('lets a jailed player use a Get Out of Jail Free card to leave', async ({ page }, testInfo) => {
     await startGameWithConfig(page, {
       players: [
         { name: 'Player 1', tokenIndex: 0, inJail: true, jailTurns: 0, getOutOfJailFreeCards: ['chance'] },
@@ -241,9 +241,7 @@ test.describe('Jail Mechanics', () => {
 
     const useCardButton = page.getByRole('button', { name: /Use Get Out of Jail Free \(1\)/ });
     await expect(useCardButton).toBeVisible({ timeout: 10000 });
-    if (!process.env.CI) {
-      await page.screenshot({ path: '/opt/cursor/artifacts/jail_free_before.png', fullPage: true });
-    }
+    await page.screenshot({ path: testInfo.outputPath('jail_free_before.png'), fullPage: true });
     await useCardButton.click();
 
     // The player is freed: the jail indicator and jail-specific controls disappear,
@@ -251,8 +249,6 @@ test.describe('Jail Mechanics', () => {
     await expect(page.getByText('In Alcatraz')).not.toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('button', { name: /Use Get Out of Jail Free/ })).not.toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeVisible({ timeout: 5000 });
-    if (!process.env.CI) {
-      await page.screenshot({ path: '/opt/cursor/artifacts/jail_free_after.png', fullPage: true });
-    }
+    await page.screenshot({ path: testInfo.outputPath('jail_free_after.png'), fullPage: true });
   });
 });

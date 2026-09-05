@@ -124,6 +124,26 @@ describe("game engine (reducer)", () => {
       expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7, 11])
     })
 
+    it("returns a held Community Chest card to its original deck", () => {
+      const jailed = {
+        ...createPlayer(0, "P0", 0),
+        inJail: true,
+        getOutOfJailFreeCards: ["community-chest" as const],
+      }
+      const state = baseState({
+        players: [jailed],
+        currentPlayerIndex: 0,
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [7]),
+        communityChestDeck: createDeckFromIds(COMMUNITY_CHEST_CARDS, [2]),
+      })
+
+      const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
+
+      expect(next.players[0].getOutOfJailFreeCards).toEqual([])
+      expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7])
+      expect(next.communityChestDeck.cards.map((card) => card.id)).toEqual([2, 16])
+    })
+
     it("is a no-op when the player has no card", () => {
       const jailed = { ...createPlayer(0, "P0", 0), inJail: true, getOutOfJailFreeCards: [] }
       const state = baseState({ players: [jailed], currentPlayerIndex: 0 })
