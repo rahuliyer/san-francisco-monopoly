@@ -89,8 +89,8 @@ describe('GameSetup component', () => {
     
     expect(mockOnStartGame).toHaveBeenCalledTimes(1)
     expect(mockOnStartGame).toHaveBeenCalledWith([
-      { name: 'Player 1', tokenIndex: 0 },
-      { name: 'Player 2', tokenIndex: 1 },
+      { name: 'Player 1', tokenIndex: 0, isComputer: false },
+      { name: 'Player 2', tokenIndex: 1, isComputer: false },
     ])
   })
 
@@ -102,9 +102,9 @@ describe('GameSetup component', () => {
     await userEvent.click(screen.getByRole('button', { name: /start game/i }))
     
     expect(mockOnStartGame).toHaveBeenCalledWith([
-      { name: 'Player 1', tokenIndex: 0 },
-      { name: 'Player 2', tokenIndex: 1 },
-      { name: 'Player 3', tokenIndex: 2 },
+      { name: 'Player 1', tokenIndex: 0, isComputer: false },
+      { name: 'Player 2', tokenIndex: 1, isComputer: false },
+      { name: 'Player 3', tokenIndex: 2, isComputer: false },
     ])
   })
 
@@ -120,8 +120,29 @@ describe('GameSetup component', () => {
     await userEvent.click(screen.getByRole('button', { name: /start game/i }))
     
     expect(mockOnStartGame).toHaveBeenCalledWith([
-      { name: 'Alice', tokenIndex: 0 },
-      { name: 'Bob', tokenIndex: 1 },
+      { name: 'Alice', tokenIndex: 0, isComputer: false },
+      { name: 'Bob', tokenIndex: 1, isComputer: false },
+    ])
+  })
+
+  it('should fill the remaining seats with computer players when fewer humans are chosen', async () => {
+    render(<GameSetup onStartGame={mockOnStartGame} />)
+
+    // 3 total players, then choose 1 human -> 2 computer players.
+    await userEvent.click(screen.getByText('3 Players'))
+    // The Human Players selector exposes buttons labeled 1..playerCount.
+    await userEvent.click(screen.getByRole('button', { name: '1' }))
+
+    // Only one human name input remains.
+    expect(screen.getAllByRole('textbox')).toHaveLength(1)
+    expect(screen.getByText('Computer 2')).toBeInTheDocument()
+    expect(screen.getByText('Computer 3')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /start game/i }))
+    expect(mockOnStartGame).toHaveBeenCalledWith([
+      { name: 'Player 1', tokenIndex: 0, isComputer: false },
+      { name: 'Computer 2', tokenIndex: 1, isComputer: true },
+      { name: 'Computer 3', tokenIndex: 2, isComputer: true },
     ])
   })
 
