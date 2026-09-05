@@ -1,0 +1,17 @@
+{
+  "name": "San Francisco Monopoly",
+  "install": "pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "pnpm dev",
+      "description": "Next.js dev server on http://localhost:3000 (used by the app and reused by Playwright e2e tests)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3000
+    }
+  ]
+}
