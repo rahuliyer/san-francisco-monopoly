@@ -37,7 +37,7 @@ async function startGameWithConfig(page: Page, config: DeterministicGameConfig) 
 }
 
 test.describe('Voluntary House Selling', () => {
-  test('sells a house from an owned monopoly and refunds half the build cost', async ({ page }) => {
+  test('sells a house from an owned monopoly and refunds half the build cost', async ({ page }, testInfo) => {
     // Player 1 owns the full light-blue monopoly (Sunset 6, Richmond 8, Outer Mission 9),
     // each with one house. House cost is $50, so selling refunds $25.
     const config: DeterministicGameConfig = {
@@ -73,13 +73,13 @@ test.describe('Voluntary House Selling', () => {
     const sellButton = page.getByRole('button', { name: /Sell House/ });
     await expect(sellButton).toBeVisible({ timeout: 5000 });
     await expect(sellButton).toContainText('+$25');
-    await propertyCardModal.screenshot({ path: '/opt/cursor/artifacts/sell_house_before.png' });
+    await propertyCardModal.screenshot({ path: testInfo.outputPath('sell_house_before.png') });
 
     await sellButton.click();
 
     // After selling the only house, the sell button disappears and cash rises to $1,525.
     await expect(page.getByRole('button', { name: /Sell House|Sell Hotel/ })).not.toBeVisible({ timeout: 5000 });
     await expect(page.getByText('$1,525')).toBeVisible({ timeout: 5000 });
-    await propertyCardModal.screenshot({ path: '/opt/cursor/artifacts/sell_house_after.png' });
+    await propertyCardModal.screenshot({ path: testInfo.outputPath('sell_house_after.png') });
   });
 });
