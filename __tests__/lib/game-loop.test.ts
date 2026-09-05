@@ -87,6 +87,41 @@ describe("game engine (reducer)", () => {
     })
   })
 
+  describe("Get Out of Jail Free", () => {
+    it("grants a card when the effect is drawn and lets the player use it to leave jail", () => {
+      // Chance card id 11 is a Get Out of Jail Free card. Start on Chance (7)
+      // reached with a 2 from position 5.
+      const { gameLoop } = createDeterministicGame({
+        players: [{ name: "P0", tokenIndex: 0, initialPosition: 5 }],
+        diceSequence: [[1, 1]],
+        chanceOrder: [11],
+      })
+
+      gameLoop.dispatch({ type: "ROLL_DICE" })
+      let state = gameLoop.getState()
+      expect(state.players[0].getOutOfJailFreeCards).toBe(1)
+    })
+
+    it("releases the player and decrements the card count on USE_JAIL_CARD", () => {
+      const jailed = { ...createPlayer(0, "P0", 0), inJail: true, jailTurns: 1, getOutOfJailFreeCards: 1 }
+      const state = baseState({ players: [jailed], currentPlayerIndex: 0 })
+
+      const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
+
+      expect(next.players[0].inJail).toBe(false)
+      expect(next.players[0].jailTurns).toBe(0)
+      expect(next.players[0].getOutOfJailFreeCards).toBe(0)
+    })
+
+    it("is a no-op when the player has no card", () => {
+      const jailed = { ...createPlayer(0, "P0", 0), inJail: true, getOutOfJailFreeCards: 0 }
+      const state = baseState({ players: [jailed], currentPlayerIndex: 0 })
+
+      const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
+      expect(next).toBe(state)
+    })
+  })
+
   describe("deterministic card draws", () => {
     it("uses the stable player id when charging for repairs", () => {
       const pA = { ...createPlayer(5, "A", 0), position: 5 }

@@ -526,6 +526,26 @@ function payJailFeeReducer(state: GameState): GameState {
   return updateCurrentPlayer(newState, () => result.player)
 }
 
+/** Use a "Get Out of Jail Free" card reducer */
+function useJailCardReducer(state: GameState): GameState {
+  const currentPlayer = state.players[state.currentPlayerIndex]
+  if (!currentPlayer.inJail || (currentPlayer.getOutOfJailFreeCards ?? 0) <= 0) {
+    return state
+  }
+
+  let newState = addLog(
+    state,
+    `${currentPlayer.name} used a Get Out of Jail Free card`
+  )
+
+  return updateCurrentPlayer(newState, (p) => ({
+    ...p,
+    inJail: false,
+    jailTurns: 0,
+    getOutOfJailFreeCards: (p.getOutOfJailFreeCards ?? 0) - 1,
+  }))
+}
+
 /** End turn reducer */
 function endTurnReducer(state: GameState): GameState {
   if (state.gameOver) {
@@ -749,6 +769,10 @@ export function gameReducer(
 
     case "PAY_JAIL_FEE":
       newState = payJailFeeReducer(state)
+      break
+
+    case "USE_JAIL_CARD":
+      newState = useJailCardReducer(state)
       break
 
     case "PROPOSE_TRADE":
