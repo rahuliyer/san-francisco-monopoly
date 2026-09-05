@@ -8,7 +8,7 @@ import type { DiceRoller } from "@/lib/mechanics/dice"
 import { RandomDiceRoller, createLegacyCompatibleRoller } from "@/lib/mechanics/dice"
 import { canRoll, shouldRollAgain } from "@/lib/mechanics/turn"
 import { canPayJailFee } from "@/lib/mechanics/jail"
-import { canBuyProperty, canBuildHouse, canMortgage, canUnmortgage } from "@/lib/mechanics/property-actions"
+import { canBuyProperty, canBuildHouse, canMortgage, canUnmortgage, canSellHouse } from "@/lib/mechanics/property-actions"
 import { BOARD_SPACES } from "@/lib/models/board"
 import type { PlayerSetup } from "@/lib/models/player"
 
@@ -130,6 +130,19 @@ export class GameLoop {
           state.propertyOwners,
           state.propertyHouses,
           state.mortgagedProperties
+        )
+        return check.allowed
+      }
+
+      case "SELL_HOUSE": {
+        const space = BOARD_SPACES[action.propertyId]
+        if (!space) return false
+        const check = canSellHouse(
+          currentPlayer,
+          space,
+          state.propertyOwners[action.propertyId],
+          state.propertyOwners,
+          state.propertyHouses
         )
         return check.allowed
       }

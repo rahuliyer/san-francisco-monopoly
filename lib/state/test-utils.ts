@@ -124,6 +124,9 @@ export function createDeterministicGame(
     propertyOwners,
     propertyHouses,
     mortgagedProperties,
+    // Use the configured (deterministic) deck order so card draws are reproducible.
+    chanceDeck,
+    communityChestDeck,
     gameLog: config.initialLog ?? [`Game started! ${players[0]?.name ?? "Player 1"} goes first.`],
   }
 

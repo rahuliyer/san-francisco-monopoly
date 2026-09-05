@@ -6,10 +6,23 @@ import type { GameAction, TradePayload } from "./actions"
 import type { DiceRoller, DiceValues } from "@/lib/mechanics/dice"
 import { createPlayer, type Player } from "@/lib/models/player"
 import { BOARD_SPACES, getSpacesByColorGroup } from "@/lib/models/board"
-import { drawChanceCard, drawCommunityChestCard, type GameCard } from "@/lib/models/card"
+import {
+  drawCard,
+  createShuffledDeck,
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+  type GameCard,
+} from "@/lib/models/card"
 import { applyCardEffect, formatRepairsSummary } from "@/lib/mechanics/cards"
 import { calculateRent } from "@/lib/mechanics/rent"
-import { calculateUnmortgageCost, canBuildHouse, canMortgage, canUnmortgage } from "@/lib/mechanics/property-actions"
+import {
+  calculateUnmortgageCost,
+  calculateHouseSellPrice,
+  canBuildHouse,
+  canMortgage,
+  canUnmortgage,
+  canSellHouse,
+} from "@/lib/mechanics/property-actions"
 import { handleJailEscape, handleJailFeePayment, shouldGoToJailForDoubles } from "@/lib/mechanics/jail"
 import { getNextPlayerIndex, shouldEndTurn, shouldRollAgain } from "@/lib/mechanics/turn"
 import { resolveBankruptcies, getWinnerId } from "@/lib/game-status"
@@ -182,7 +195,12 @@ function rollReducer(
 
   // Handle Chance/Community Chest
   if (landedSpace.type === "chance" || landedSpace.type === "community-chest") {
-    const card = landedSpace.type === "chance" ? drawChanceCard() : drawCommunityChestCard()
+    const isChance = landedSpace.type === "chance"
+    const deck = isChance ? newState.chanceDeck : newState.communityChestDeck
+    const { card, newDeck } = drawCard(deck)
+    newState = isChance
+      ? { ...newState, chanceDeck: newDeck }
+      : { ...newState, communityChestDeck: newDeck }
     newState = addLog(newState, `Drew: ${card.text}`)
     newState = { ...newState, drawnCard: card }
 
@@ -202,10 +220,10 @@ function rollReducer(
     newState = { ...newState, players: result.updatedPlayers }
   }
 
-  // Handle landing on owned property (rent)
+  // Handle landing on owned property (rent). Ownership is keyed by stable player id.
   const isPurchasable = ["property", "railroad", "utility"].includes(landedSpace.type)
   const ownerId = newState.propertyOwners[landedSpace.id]
-  const isOwnProperty = ownerId === newState.currentPlayerIndex
+  const isOwnProperty = ownerId === currentPlayer.id
   const isOtherPlayerProperty = ownerId !== undefined && !isOwnProperty
   const isMortgaged = newState.mortgagedProperties[landedSpace.id] === true
 
@@ -220,7 +238,8 @@ function rollReducer(
     )
 
     if (rentAmount > 0) {
-      const ownerName = newState.players[ownerId].name
+      const ownerName =
+        newState.players.find((p) => p.id === ownerId)?.name ?? "the owner"
       newState = addLog(newState, `${currentPlayer.name} paid $${rentAmount} rent to ${ownerName}`)
 
       // Transfer money
@@ -228,7 +247,7 @@ function rollReducer(
         ...p,
         money: p.money - rentAmount,
       }))
-      newState = updatePlayer(newState, newState.players[ownerId].id, (p) => ({
+      newState = updatePlayer(newState, ownerId, (p) => ({
         ...p,
         money: p.money + rentAmount,
       }))
@@ -292,7 +311,7 @@ function buyPropertyReducer(
     ...newState,
     propertyOwners: {
       ...newState.propertyOwners,
-      [propertyId]: state.currentPlayerIndex,
+      [propertyId]: currentPlayer.id,
     },
     selectedSpace: null,
     awaitingPropertyDecision: false,
@@ -359,6 +378,59 @@ function buildHouseReducer(
       ...newState.propertyHouses,
       [propertyId]: nextHouseCount,
     },
+  }
+}
+
+/** Sell house reducer */
+function sellHouseReducer(
+  state: GameState,
+  propertyId: number
+): GameState {
+  const space = BOARD_SPACES[propertyId]
+  if (!space || space.type !== "property" || !space.houseCost) {
+    return state
+  }
+
+  const currentPlayer = state.players[state.currentPlayerIndex]
+  const ownerId = state.propertyOwners[propertyId]
+
+  const check = canSellHouse(
+    currentPlayer,
+    space,
+    ownerId,
+    state.propertyOwners,
+    state.propertyHouses
+  )
+
+  if (!check.allowed) {
+    return state
+  }
+
+  const currentHouseCount = state.propertyHouses[propertyId] ?? 0
+  const sellPrice = calculateHouseSellPrice(space.houseCost)
+  const buildingLabel = currentHouseCount >= MAX_HOUSES ? "hotel" : "house"
+
+  let newState = addLog(
+    state,
+    `${currentPlayer.name} sold a ${buildingLabel} on ${space.name} for $${sellPrice}`
+  )
+
+  newState = updateCurrentPlayer(newState, (p) => ({
+    ...p,
+    money: p.money + sellPrice,
+  }))
+
+  const updatedHouses = { ...newState.propertyHouses }
+  const nextHouseCount = currentHouseCount - 1
+  if (nextHouseCount <= 0) {
+    delete updatedHouses[propertyId]
+  } else {
+    updatedHouses[propertyId] = nextHouseCount
+  }
+
+  return {
+    ...newState,
+    propertyHouses: updatedHouses,
   }
 }
 
@@ -509,6 +581,9 @@ function startGameReducer(
     rolling: false,
     consecutiveDoubles: 0,
     diceValues: getRandomInitialDice(),
+    chanceDeck: createShuffledDeck(CHANCE_CARDS),
+    communityChestDeck: createShuffledDeck(COMMUNITY_CHEST_CARDS),
+    drawnCard: null,
   }
 }
 
@@ -632,6 +707,9 @@ export function gameReducer(
         gameLog: [],
         gameOver: false,
         winnerId: null,
+        chanceDeck: createShuffledDeck(CHANCE_CARDS),
+        communityChestDeck: createShuffledDeck(COMMUNITY_CHEST_CARDS),
+        drawnCard: null,
       }
 
     case "ROLL_DICE":
@@ -652,6 +730,10 @@ export function gameReducer(
 
     case "BUILD_HOUSE":
       newState = buildHouseReducer(state, action.propertyId)
+      break
+
+    case "SELL_HOUSE":
+      newState = sellHouseReducer(state, action.propertyId)
       break
 
     case "MORTGAGE":
