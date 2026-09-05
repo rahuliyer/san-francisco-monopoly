@@ -81,4 +81,39 @@ test.describe('Computer player', () => {
     await expect(page.getByText("Computer 2's Turn")).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Player 1's Turn")).toBeVisible({ timeout: 20000 });
   });
+
+  test('resolves its own forced liquidation without blocking the game', async ({ page }) => {
+    // The computer lands on the human's developed property owing more rent than
+    // it has cash, but it owns mortgageable property. It must resolve the
+    // LiquidationModal itself (by mortgaging) and then hand the turn to the human.
+    await startGameWithConfig(page, {
+      players: [
+        { name: 'Computer 1', tokenIndex: 0, isComputer: true, initialMoney: 10, initialPosition: 1 },
+        { name: 'Player 2', tokenIndex: 1, initialMoney: 1500 },
+      ],
+      initialProperties: [
+        // Player 2 owns Sunset District with a house -> rent = $30.
+        { propertyId: 6, ownerId: 1, houseCount: 1 },
+        // Computer 1 owns two brown properties it can mortgage for $30 each.
+        { propertyId: 1, ownerId: 0 },
+        { propertyId: 3, ownerId: 0 },
+      ],
+      // Roll of 5 (1 -> 6) lands the computer on Sunset District. Not doubles.
+      diceSequence: [[2, 3]],
+    });
+
+    await expect(page.getByText("Computer 1's Turn")).toBeVisible({ timeout: 10000 });
+
+    // The computer goes into debt and the LiquidationModal opens for it...
+    await expect(page.getByText('Liquidation Required')).toBeVisible({ timeout: 10000 });
+    // ...then the computer resolves it on its own (mortgages) and the modal closes.
+    await expect(page.getByText('Liquidation Required')).toBeHidden({ timeout: 10000 });
+
+    // The turn hands off to the human, who can act (modal is not blocking).
+    await expect(page.getByText("Player 2's Turn")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: 'Roll Dice' })).toBeEnabled({ timeout: 5000 });
+
+    // The computer survived (game is not over).
+    await expect(page.getByText('Victory!')).toHaveCount(0);
+  });
 });

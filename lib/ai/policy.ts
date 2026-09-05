@@ -84,3 +84,40 @@ export function decideAiMove(view: AiTurnView): AiMove {
   // existing action-complete timers, so nothing to do here.
   return "wait"
 }
+
+/** A property a liquidating player owns, with what can be done to raise cash. */
+export interface LiquidationAsset {
+  spaceId: number
+  houseCount: number
+  /** House/hotel can be sold now (respects even-selling within the color group). */
+  canSellHouse: boolean
+  /** Property can be mortgaged now (has a mortgage value, unmortgaged, no houses). */
+  canMortgage: boolean
+}
+
+/** The next liquidation action for a computer player that owes more than its cash. */
+export type AiLiquidationMove =
+  | { kind: "sellHouse"; spaceId: number }
+  | { kind: "mortgage"; spaceId: number }
+  | { kind: "bankrupt" }
+
+/**
+ * Chooses how a computer player raises funds while in forced liquidation.
+ * Sells buildings first (mortgaging requires zero houses), then mortgages,
+ * and finally declares bankruptcy when nothing is left to liquidate.
+ */
+export function decideAiLiquidationMove(assets: LiquidationAsset[]): AiLiquidationMove {
+  const sellable = assets.filter((a) => a.canSellHouse)
+  if (sellable.length > 0) {
+    // Sell from the property with the most houses so even-selling stays valid.
+    const target = sellable.reduce((best, a) => (a.houseCount > best.houseCount ? a : best))
+    return { kind: "sellHouse", spaceId: target.spaceId }
+  }
+
+  const mortgageable = assets.filter((a) => a.canMortgage)
+  if (mortgageable.length > 0) {
+    return { kind: "mortgage", spaceId: mortgageable[0].spaceId }
+  }
+
+  return { kind: "bankrupt" }
+}

@@ -28,7 +28,7 @@ import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSing
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
 import { canSellHouse, calculateHouseSellPrice } from "@/lib/mechanics/property-actions"
-import { decideAiMove, type AiTurnView } from "@/lib/ai/policy"
+import { decideAiMove, decideAiLiquidationMove, type AiTurnView, type LiquidationAsset } from "@/lib/ai/policy"
 import { LiquidationModal } from "@/components/liquidation-modal"
 
 const {
@@ -121,6 +121,11 @@ export default function MonopolyGame() {
       if (prev.gameOver) {
         return prev
       }
+      // Never hand off the turn while a player is still resolving a forced
+      // liquidation - the LiquidationModal must be cleared first.
+      if (prev.liquidatingPlayerId !== null) {
+        return prev
+      }
       const nextPlayerIndex = getNextActivePlayerIndex(prev.players, prev.currentPlayerIndex)
       if (nextPlayerIndex === null || nextPlayerIndex === prev.currentPlayerIndex) {
         return prev
@@ -148,6 +153,10 @@ export default function MonopolyGame() {
   // If they rolled doubles, they get another roll; otherwise, end turn
   const handleActionComplete = useCallback(() => {
     setGameState((prev) => {
+      // Do not advance or grant a re-roll while a forced liquidation is open.
+      if (prev.liquidatingPlayerId !== null) {
+        return prev
+      }
       // If player rolled doubles (and didn't go to jail for 3rd double), they can roll again
       if (prev.consecutiveDoubles > 0) {
         // Check if the current player is in jail (sent by landing on Go To Jail or card)
@@ -556,6 +565,11 @@ export default function MonopolyGame() {
       // Delay showing dialogs until after dice animation completes
       setTimeout(() => {
         setGameState((prev) => {
+          // If paying rent/tax pushed the player into a forced liquidation, the
+          // LiquidationModal owns the screen - don't pop the landing modal on top.
+          if (prev.liquidatingPlayerId !== null) {
+            return prev
+          }
           const isUnowned = prev.propertyOwners[landedSpace.id] === undefined
           const ownerId = prev.propertyOwners[landedSpace.id]
           const isOwnProperty = ownerId === prev.currentPlayerIndex
@@ -1155,7 +1169,13 @@ export default function MonopolyGame() {
       )
 
       if (hasAssets) {
-        // Enter liquidation mode - player can sell houses/mortgage properties
+        // Enter liquidation mode - player can sell houses/mortgage properties.
+        // Cancel any pending turn-completion timer so the turn cannot hand off
+        // while the LiquidationModal is still open.
+        if (endTurnTimeoutRef.current) {
+          clearTimeout(endTurnTimeoutRef.current)
+          endTurnTimeoutRef.current = null
+        }
         const creditorId = findCreditorForPlayer(
           player,
           gameState.players,
@@ -1248,6 +1268,65 @@ export default function MonopolyGame() {
   // A short delay keeps moves visible; the effect re-runs on every state change,
   // stepping the AI through roll -> decide -> acknowledge -> (auto) end turn.
   useEffect(() => {
+    // Forced liquidation takes priority and can involve any seat (the debtor is
+    // usually, but not necessarily, the current player). A computer must resolve
+    // its own LiquidationModal or the game cannot continue autonomously.
+    if (gameState.liquidatingPlayerId !== null) {
+      const liqPlayer = gameState.players.find((p) => p.id === gameState.liquidatingPlayerId)
+      if (!liqPlayer?.isComputer) {
+        return
+      }
+
+      const assets: LiquidationAsset[] = []
+      for (const [idStr, ownerId] of Object.entries(gameState.propertyOwners)) {
+        if (ownerId !== liqPlayer.id) continue
+        const spaceId = Number(idStr)
+        const space = BOARD_SPACES[spaceId]
+        if (!space) continue
+        const houseCount = gameState.propertyHouses[spaceId] ?? 0
+        const isMortgaged = gameState.mortgagedProperties[spaceId] === true
+
+        let groupMax = 0
+        if (space.type === "property") {
+          const groupSpaces = BOARD_SPACES.filter(
+            (s) => s.type === "property" && s.colorGroup === space.colorGroup
+          )
+          groupMax = Math.max(
+            0,
+            ...groupSpaces
+              .filter((s) => gameState.propertyOwners[s.id] === liqPlayer.id)
+              .map((s) => gameState.propertyHouses[s.id] ?? 0)
+          )
+        }
+
+        assets.push({
+          spaceId,
+          houseCount,
+          canSellHouse:
+            space.type === "property" && !!space.houseCost && houseCount > 0 && houseCount === groupMax,
+          canMortgage: space.mortgage !== undefined && !isMortgaged && houseCount === 0,
+        })
+      }
+
+      const liqMove = decideAiLiquidationMove(assets)
+      aiTimeoutRef.current = setTimeout(() => {
+        if (liqMove.kind === "sellHouse") {
+          handleLiquidationSellHouse(liqMove.spaceId)
+        } else if (liqMove.kind === "mortgage") {
+          handleLiquidationMortgage(liqMove.spaceId)
+        } else {
+          handleDeclareBankruptcy()
+        }
+      }, AI_MOVE_DELAY_MS)
+
+      return () => {
+        if (aiTimeoutRef.current) {
+          clearTimeout(aiTimeoutRef.current)
+          aiTimeoutRef.current = null
+        }
+      }
+    }
+
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
     if (!currentPlayer?.isComputer) {
       return
@@ -1319,6 +1398,48 @@ export default function MonopolyGame() {
     handlePassProperty,
     handleCloseCard,
     handleCloseSpecialCard,
+    handleLiquidationSellHouse,
+    handleLiquidationMortgage,
+    handleDeclareBankruptcy,
+  ])
+
+  // When a forced liquidation resolves to solvency, resume the debtor's turn.
+  // (Bankruptcy is handled by the bankrupt-player turn-skip effect instead.)
+  const prevLiquidatingIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    const prevId = prevLiquidatingIdRef.current
+    const currentId = gameState.liquidatingPlayerId
+    prevLiquidatingIdRef.current = currentId
+
+    if (prevId === null || currentId !== null || gameState.gameOver) {
+      return
+    }
+
+    const resolvedPlayer = gameState.players.find((p) => p.id === prevId)
+    const isResolvedPlayersTurn =
+      gameState.players[gameState.currentPlayerIndex]?.id === prevId
+
+    if (
+      resolvedPlayer &&
+      !resolvedPlayer.isBankrupt &&
+      isResolvedPlayersTurn &&
+      gameState.hasRolled &&
+      gameState.selectedSpace === null &&
+      !gameState.awaitingSpecialSpace
+    ) {
+      endTurnTimeoutRef.current = setTimeout(() => {
+        handleActionComplete()
+      }, 500)
+    }
+  }, [
+    gameState.liquidatingPlayerId,
+    gameState.gameOver,
+    gameState.players,
+    gameState.currentPlayerIndex,
+    gameState.hasRolled,
+    gameState.selectedSpace,
+    gameState.awaitingSpecialSpace,
+    handleActionComplete,
   ])
 
   if (showSplash) {

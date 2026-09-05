@@ -1,4 +1,11 @@
-import { decideAiMove, shouldBuyProperty, AI_CASH_RESERVE, type AiTurnView } from "@/lib/ai/policy"
+import {
+  decideAiMove,
+  decideAiLiquidationMove,
+  shouldBuyProperty,
+  AI_CASH_RESERVE,
+  type AiTurnView,
+  type LiquidationAsset,
+} from "@/lib/ai/policy"
 
 function view(overrides: Partial<AiTurnView> = {}): AiTurnView {
   return {
@@ -84,6 +91,45 @@ describe("AI policy", () => {
         view({ inJail: true, jailFreeCards: 1, propertyModalOpen: true, canBuy: false })
       )
       expect(move).toBe("closeProperty")
+    })
+  })
+
+  describe("decideAiLiquidationMove", () => {
+    const asset = (o: Partial<LiquidationAsset> = {}): LiquidationAsset => ({
+      spaceId: 1,
+      houseCount: 0,
+      canSellHouse: false,
+      canMortgage: false,
+      ...o,
+    })
+
+    it("sells houses before mortgaging", () => {
+      const move = decideAiLiquidationMove([
+        asset({ spaceId: 1, canMortgage: true }),
+        asset({ spaceId: 6, houseCount: 2, canSellHouse: true }),
+      ])
+      expect(move).toEqual({ kind: "sellHouse", spaceId: 6 })
+    })
+
+    it("sells from the property with the most houses (keeps even-selling valid)", () => {
+      const move = decideAiLiquidationMove([
+        asset({ spaceId: 6, houseCount: 1, canSellHouse: true }),
+        asset({ spaceId: 8, houseCount: 3, canSellHouse: true }),
+      ])
+      expect(move).toEqual({ kind: "sellHouse", spaceId: 8 })
+    })
+
+    it("mortgages when there are no houses to sell", () => {
+      const move = decideAiLiquidationMove([
+        asset({ spaceId: 5 }),
+        asset({ spaceId: 3, canMortgage: true }),
+      ])
+      expect(move).toEqual({ kind: "mortgage", spaceId: 3 })
+    })
+
+    it("declares bankruptcy when nothing can be liquidated", () => {
+      expect(decideAiLiquidationMove([asset(), asset({ spaceId: 9 })])).toEqual({ kind: "bankrupt" })
+      expect(decideAiLiquidationMove([])).toEqual({ kind: "bankrupt" })
     })
   })
 
