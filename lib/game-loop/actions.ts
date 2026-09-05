@@ -3,7 +3,13 @@
 
 import type { PlayerSetup } from "@/lib/models/player"
 import type { Space } from "@/lib/models/types"
-import type { GameCard } from "@/lib/models/card"
+import {
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
+  createShuffledDeck,
+  type CardDeck,
+  type GameCard,
+} from "@/lib/models/card"
 
 /** Trade payload for proposing trades between players */
 export interface TradePayload {
@@ -17,8 +23,17 @@ export interface TradePayload {
 /** All possible game actions */
 export type GameAction =
   // Game lifecycle
-  | { type: "START_GAME"; players: PlayerSetup[] }
-  | { type: "RESET_GAME" }
+  | {
+      type: "START_GAME"
+      players: PlayerSetup[]
+      chanceDeck: CardDeck
+      communityChestDeck: CardDeck
+    }
+  | {
+      type: "RESET_GAME"
+      chanceDeck: CardDeck
+      communityChestDeck: CardDeck
+    }
 
   // Turn actions
   | { type: "ROLL_DICE" }
@@ -69,11 +84,20 @@ export interface ActionResult {
 /** Helper to create action creators */
 export const actions = {
   // Game lifecycle
-  startGame: (players: PlayerSetup[]): GameAction => ({
+  startGame: (
+    players: PlayerSetup[],
+    chanceDeck: CardDeck = createShuffledDeck(CHANCE_CARDS),
+    communityChestDeck: CardDeck = createShuffledDeck(COMMUNITY_CHEST_CARDS)
+  ): GameAction => ({
     type: "START_GAME",
     players,
+    chanceDeck,
+    communityChestDeck,
   }),
-  resetGame: (): GameAction => ({ type: "RESET_GAME" }),
+  resetGame: (
+    chanceDeck: CardDeck = createShuffledDeck(CHANCE_CARDS),
+    communityChestDeck: CardDeck = createShuffledDeck(COMMUNITY_CHEST_CARDS)
+  ): GameAction => ({ type: "RESET_GAME", chanceDeck, communityChestDeck }),
 
   // Turn actions
   rollDice: (): GameAction => ({ type: "ROLL_DICE" }),
