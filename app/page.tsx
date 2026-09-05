@@ -27,6 +27,7 @@ import { actions as gameActions, type GameAction } from "@/lib/game-loop"
 import { getNextActivePlayerIndex, getWinnerId, resolveBankruptcies, resolveSingleBankruptcy, canPlayerLiquidate, findCreditorForPlayer } from "@/lib/game-status"
 import { GAME_CONSTANTS } from "@/lib/constants"
 import { applyCardEffect, formatRepairsSummary, calculateRepairsCost } from "@/lib/mechanics/cards"
+import { canSellHouse, calculateHouseSellPrice } from "@/lib/mechanics/property-actions"
 import { LiquidationModal } from "@/components/liquidation-modal"
 
 const {
@@ -866,6 +867,13 @@ export default function MonopolyGame() {
     dispatch(gameActions.buildHouse(space.id))
   }, [gameState.selectedSpace, dispatch])
 
+  const handleSellHouse = useCallback(() => {
+    const space = gameState.selectedSpace
+    if (!space || space.type !== "property" || !space.houseCost) return
+
+    dispatch(gameActions.sellHouse(space.id))
+  }, [gameState.selectedSpace, dispatch])
+
   const handleViewPlayerProperties = useCallback((player: Player) => {
     setGameState((prev) => ({ ...prev, viewingPropertiesForPlayer: player }))
   }, [])
@@ -1280,6 +1288,22 @@ export default function MonopolyGame() {
     }
   }
 
+  const selectedSpaceSellPrice =
+    gameState.selectedSpace?.houseCost !== undefined
+      ? calculateHouseSellPrice(gameState.selectedSpace.houseCost)
+      : undefined
+  const canSellSelectedHouse = !!(
+    canManageHouses &&
+    gameState.selectedSpace &&
+    canSellHouse(
+      currentPlayer,
+      gameState.selectedSpace,
+      selectedSpaceOwnerId,
+      gameState.propertyOwners,
+      gameState.propertyHouses
+    ).allowed
+  )
+
   const canBuySelectedSpace =
     gameState.selectedSpace &&
     gameState.selectedSpace.price &&
@@ -1498,6 +1522,9 @@ export default function MonopolyGame() {
           buildMessage={buildMessage}
           onBuildHouse={handleBuildHouse}
           onBuildHotel={handleBuildHouse}
+          canSellHouse={canSellSelectedHouse}
+          sellHousePrice={selectedSpaceSellPrice}
+          onSellHouse={handleSellHouse}
         />
       )}
 

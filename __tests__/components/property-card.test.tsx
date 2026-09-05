@@ -378,6 +378,77 @@ describe('PropertyCard component', () => {
     })
   })
 
+  describe('House selling', () => {
+    const mockOnSell = jest.fn()
+
+    it('should show Sell House button when the owner has houses', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={2}
+          canManageHouses={true}
+          canSellHouse={true}
+          sellHousePrice={25}
+          onSellHouse={mockOnSell}
+        />
+      )
+
+      const sellButton = screen.getByRole('button', { name: /sell house/i })
+      expect(sellButton).toBeInTheDocument()
+      expect(sellButton).toHaveTextContent('+$25')
+      fireEvent.click(sellButton)
+      expect(mockOnSell).toHaveBeenCalledTimes(1)
+    })
+
+    it('should label the button Sell Hotel when a hotel is present', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={5}
+          canManageHouses={true}
+          canSellHouse={true}
+          sellHousePrice={25}
+          onSellHouse={mockOnSell}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /sell hotel/i })).toBeInTheDocument()
+    })
+
+    it('should disable the Sell button when selling is not allowed', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={2}
+          canManageHouses={true}
+          canSellHouse={false}
+          sellHousePrice={25}
+          onSellHouse={mockOnSell}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: /sell house/i })).toBeDisabled()
+    })
+
+    it('should not show a Sell button when there are no buildings', () => {
+      render(
+        <PropertyCard
+          space={propertySpace}
+          onClose={mockOnClose}
+          houseCount={0}
+          canManageHouses={true}
+          canSellHouse={false}
+          onSellHouse={mockOnSell}
+        />
+      )
+
+      expect(screen.queryByRole('button', { name: /sell house|sell hotel/i })).not.toBeInTheDocument()
+    })
+  })
+
   describe('Owner display', () => {
     it('should show owner info when property is owned', () => {
       render(
