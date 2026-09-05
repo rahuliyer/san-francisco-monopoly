@@ -10,6 +10,7 @@ import { PlayerToken3D } from "@/components/player-token-3d"
 interface PlayerSetup {
   name: string
   tokenIndex: number
+  isComputer?: boolean
 }
 
 interface GameSetupProps {
@@ -18,12 +19,22 @@ interface GameSetupProps {
 
 export function GameSetup({ onStartGame }: GameSetupProps) {
   const [playerCount, setPlayerCount] = useState(2)
+  // Number of human-controlled seats; the remaining seats up to playerCount are
+  // filled with computer players. Defaults to all-human.
+  const [humanCount, setHumanCount] = useState(2)
   const [players, setPlayers] = useState<PlayerSetup[]>([
     { name: "Player 1", tokenIndex: 0 },
     { name: "Player 2", tokenIndex: 1 },
     { name: "Player 3", tokenIndex: 2 },
     { name: "Player 4", tokenIndex: 3 },
   ])
+
+  const changePlayerCount = (count: number) => {
+    setPlayerCount(count)
+    // Changing the table size resets to all-human; the player can then choose
+    // how many seats the computer should take via the Human Players selector.
+    setHumanCount(count)
+  }
 
   const updatePlayerName = (index: number, name: string) => {
     const newPlayers = [...players]
@@ -44,7 +55,15 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
   }
 
   const handleStart = () => {
-    onStartGame(players.slice(0, playerCount))
+    const seats = players.slice(0, playerCount).map((player, i) => {
+      const isComputer = i >= humanCount
+      return {
+        name: isComputer ? `Computer ${i + 1}` : player.name,
+        tokenIndex: player.tokenIndex,
+        isComputer,
+      }
+    })
+    onStartGame(seats)
   }
 
   return (
@@ -70,7 +89,7 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
             {[2, 3, 4].map((count) => (
               <button
                 key={count}
-                onClick={() => setPlayerCount(count)}
+                onClick={() => changePlayerCount(count)}
                 className={cn(
                   "flex-1 rounded-md py-2 text-sm font-serif font-medium transition-colors border",
                   playerCount === count
@@ -84,16 +103,56 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
           </div>
         </div>
 
+        {/* Human vs computer selector */}
+        <div className="mb-6">
+          <label className="mb-2 block text-sm font-serif font-medium text-[#5c4a1f]">Human Players</label>
+          <div className="flex gap-2">
+            {Array.from({ length: playerCount }).map((_, i) => {
+              const count = i + 1
+              return (
+                <button
+                  key={count}
+                  onClick={() => setHumanCount(count)}
+                  className={cn(
+                    "flex-1 rounded-md py-2 text-sm font-serif font-medium transition-colors border",
+                    humanCount === count
+                      ? "bg-gradient-to-r from-[#2c6e4f] to-[#245a40] text-white border-[#2c6e4f]"
+                      : "bg-[#faf6ee] text-[#5c4a1f] hover:bg-[#f5efe3] border-[#2c6e4f]/30"
+                  )}
+                >
+                  {count}
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-2 text-xs font-serif italic text-[#5c4a1f]">
+            {playerCount - humanCount === 0
+              ? "All players are human."
+              : `The remaining ${playerCount - humanCount} ${playerCount - humanCount === 1 ? "seat" : "seats"} will be played by the computer.`}
+          </p>
+        </div>
+
         {/* Player setup */}
         <div className="space-y-4">
-          {Array.from({ length: playerCount }).map((_, i) => (
+          {Array.from({ length: playerCount }).map((_, i) => {
+            const isComputer = i >= humanCount
+            return (
             <div key={i} className="rounded-lg border border-[#d4af37]/30 p-3 bg-[#faf6ee]">
-              <Input
-                value={players[i].name}
-                onChange={(e) => updatePlayerName(i, e.target.value)}
-                placeholder={`Player ${i + 1}`}
-                className="mb-3 border-[#d4af37]/30 bg-white font-serif"
-              />
+              {isComputer ? (
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="font-serif font-medium text-[#2c3e50]">{`Computer ${i + 1}`}</span>
+                  <span className="rounded-full bg-[#2c6e4f]/10 px-2 py-0.5 text-xs font-serif font-medium text-[#2c6e4f] border border-[#2c6e4f]/30">
+                    Computer
+                  </span>
+                </div>
+              ) : (
+                <Input
+                  value={players[i].name}
+                  onChange={(e) => updatePlayerName(i, e.target.value)}
+                  placeholder={`Player ${i + 1}`}
+                  className="mb-3 border-[#d4af37]/30 bg-white font-serif"
+                />
+              )}
               <div className="flex gap-3">
                 {PLAYER_TOKENS.map((token, tokenIndex) => {
                   const isTaken =
@@ -123,7 +182,8 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
                 })}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <Button

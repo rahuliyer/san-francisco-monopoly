@@ -581,10 +581,10 @@ function endTurnReducer(state: GameState): GameState {
 /** Start game reducer */
 function startGameReducer(
   state: GameState,
-  players: { name: string; tokenIndex: number }[]
+  players: { name: string; tokenIndex: number; isComputer?: boolean }[]
 ): GameState {
   const newPlayers = players.map((setup, i) =>
-    createPlayer(i, setup.name, setup.tokenIndex)
+    createPlayer(i, setup.name, setup.tokenIndex, undefined, setup.isComputer ?? false)
   )
 
   return {

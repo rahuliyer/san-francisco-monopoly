@@ -27,6 +27,8 @@ export interface DeterministicGameConfig {
     jailTurns?: number
     /** Number of held "Get Out of Jail Free" cards */
     getOutOfJailFreeCards?: number
+    /** Whether this seat is computer-controlled */
+    isComputer?: boolean
   }>
 
   /** Sequence of dice rolls (consumed in order) */
@@ -93,6 +95,7 @@ export function createDeterministicGame(
       inJail: setup.inJail ?? false,
       jailTurns: setup.jailTurns ?? 0,
       getOutOfJailFreeCards: setup.getOutOfJailFreeCards ?? 0,
+      isComputer: setup.isComputer ?? false,
     }
   })
 
