@@ -234,7 +234,7 @@ test.describe('Jail Mechanics', () => {
   test('lets a jailed player use a Get Out of Jail Free card to leave', async ({ page }) => {
     await startGameWithConfig(page, {
       players: [
-        { name: 'Player 1', tokenIndex: 0, inJail: true, jailTurns: 0, getOutOfJailFreeCards: 1 },
+        { name: 'Player 1', tokenIndex: 0, inJail: true, jailTurns: 0, getOutOfJailFreeCards: ['chance'] },
         { name: 'Player 2', tokenIndex: 1 },
       ],
     });

@@ -14,6 +14,9 @@ export type CardEffect =
   | { type: "go-back"; spaces: number }
   | { type: "get-out-of-jail-free" }
 
+/** Deck a held Get Out of Jail Free card must be returned to. */
+export type CardDeckType = "chance" | "community-chest"
+
 /** Game card definition */
 export interface GameCard {
   readonly id: number
@@ -132,11 +135,42 @@ export function createDeckFromIds(
  */
 export function drawCard(deck: CardDeck): CardDrawResult {
   const card = deck.cards[deck.drawIndex]
+
+  if (!card) {
+    throw new Error("Cannot draw from an empty card deck")
+  }
+
+  if (card.effect.type === "get-out-of-jail-free") {
+    const remainingCards = [
+      ...deck.cards.slice(0, deck.drawIndex),
+      ...deck.cards.slice(deck.drawIndex + 1),
+    ]
+    return {
+      card,
+      newDeck: {
+        cards: remainingCards,
+        drawIndex: remainingCards.length === 0
+          ? 0
+          : deck.drawIndex % remainingCards.length,
+      },
+    }
+  }
+
   const newDrawIndex = (deck.drawIndex + 1) % deck.cards.length
   return {
     card,
     newDeck: { ...deck, drawIndex: newDrawIndex },
   }
+}
+
+/** Returns a held card to the bottom of its original deck. */
+export function returnCardToDeck(deck: CardDeck, card: GameCard): CardDeck {
+  const cardsInDrawOrder = [
+    ...deck.cards.slice(deck.drawIndex),
+    ...deck.cards.slice(0, deck.drawIndex),
+    card,
+  ]
+  return { cards: cardsInDrawOrder, drawIndex: 0 }
 }
 
 /**

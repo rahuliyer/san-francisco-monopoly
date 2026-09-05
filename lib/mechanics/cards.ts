@@ -1,6 +1,7 @@
 // Card effect mechanics - pure functions for applying card effects
 
 import { Player, GameCard, BOARD_SPACES } from "@/lib/game-data"
+import type { CardDeckType } from "@/lib/models/card"
 import { GAME_CONSTANTS } from "@/lib/constants"
 
 const { BOARD_SIZE, JAIL_POSITION, GO_POSITION, GO_BONUS, MAX_HOUSES } = GAME_CONSTANTS
@@ -56,7 +57,8 @@ export function applyCardEffect(
   players: Player[],
   playerIndex: number,
   propertyOwners: Record<number, number>,
-  propertyHouses: Record<number, number>
+  propertyHouses: Record<number, number>,
+  sourceDeck?: CardDeckType
 ): CardEffectResult {
   const updatedPlayers = players.map((p) => ({ ...p }))
   let repairsSummary: RepairsSummary | null = null
@@ -88,8 +90,13 @@ export function applyCardEffect(
         (updatedPlayers[playerIndex].position - card.effect.spaces + BOARD_SIZE) % BOARD_SIZE
       break
     case "get-out-of-jail-free":
-      updatedPlayers[playerIndex].getOutOfJailFreeCards =
-        (updatedPlayers[playerIndex].getOutOfJailFreeCards ?? 0) + 1
+      if (!sourceDeck) {
+        throw new Error("A Get Out of Jail Free card must include its source deck")
+      }
+      updatedPlayers[playerIndex].getOutOfJailFreeCards = [
+        ...updatedPlayers[playerIndex].getOutOfJailFreeCards,
+        sourceDeck,
+      ]
       break
     case "collect-from-players": {
       const collectAmount = card.effect.amount * (players.length - 1)

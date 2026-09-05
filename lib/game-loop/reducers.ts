@@ -8,6 +8,9 @@ import { createPlayer, type Player } from "@/lib/models/player"
 import { BOARD_SPACES, getSpacesByColorGroup } from "@/lib/models/board"
 import {
   drawCard,
+  returnCardToDeck,
+  CHANCE_CARDS,
+  COMMUNITY_CHEST_CARDS,
   type GameCard,
 } from "@/lib/models/card"
 import { applyCardEffect, formatRepairsSummary } from "@/lib/mechanics/cards"
@@ -206,7 +209,8 @@ function rollReducer(
       newState.players,
       newState.currentPlayerIndex,
       newState.propertyOwners,
-      newState.propertyHouses
+      newState.propertyHouses,
+      landedSpace.type
     )
 
     if (result.repairsSummary) {
@@ -529,7 +533,16 @@ function payJailFeeReducer(state: GameState): GameState {
 /** Use a "Get Out of Jail Free" card reducer */
 function useJailCardReducer(state: GameState): GameState {
   const currentPlayer = state.players[state.currentPlayerIndex]
-  if (!currentPlayer.inJail || (currentPlayer.getOutOfJailFreeCards ?? 0) <= 0) {
+  const [sourceDeck, ...remainingCards] = currentPlayer.getOutOfJailFreeCards
+  if (!currentPlayer.inJail || !sourceDeck) {
+    return state
+  }
+
+  const cardPool = sourceDeck === "chance" ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS
+  const jailCard = cardPool.find(
+    (card) => card.effect.type === "get-out-of-jail-free"
+  )
+  if (!jailCard) {
     return state
   }
 
@@ -538,12 +551,22 @@ function useJailCardReducer(state: GameState): GameState {
     `${currentPlayer.name} used a Get Out of Jail Free card`
   )
 
-  return updateCurrentPlayer(newState, (p) => ({
+  newState = updateCurrentPlayer(newState, (p) => ({
     ...p,
     inJail: false,
     jailTurns: 0,
-    getOutOfJailFreeCards: (p.getOutOfJailFreeCards ?? 0) - 1,
+    getOutOfJailFreeCards: remainingCards,
   }))
+
+  return sourceDeck === "chance"
+    ? { ...newState, chanceDeck: returnCardToDeck(newState.chanceDeck, jailCard) }
+    : {
+        ...newState,
+        communityChestDeck: returnCardToDeck(
+          newState.communityChestDeck,
+          jailCard
+        ),
+      }
 }
 
 /** End turn reducer */

@@ -2,6 +2,7 @@
 // This module provides the Player interface and pure helper functions for player state manipulation.
 
 import { GAME_CONSTANTS } from "@/lib/constants"
+import type { CardDeckType } from "@/lib/models/card"
 
 const { STARTING_MONEY, JAIL_POSITION } = GAME_CONSTANTS
 
@@ -32,8 +33,8 @@ export interface Player {
   readonly inJail: boolean
   readonly jailTurns: number
   readonly isBankrupt: boolean
-  /** Number of held "Get Out of Jail Free" cards. Optional for backward compatibility (treated as 0). */
-  readonly getOutOfJailFreeCards?: number
+  /** Held cards record their source so each one can return to the correct deck. */
+  readonly getOutOfJailFreeCards: readonly CardDeckType[]
 }
 
 /** Configuration for creating a new player */
@@ -64,7 +65,7 @@ export function createPlayer(
     inJail: false,
     jailTurns: 0,
     isBankrupt: false,
-    getOutOfJailFreeCards: 0,
+    getOutOfJailFreeCards: [],
   }
 }
 
@@ -163,7 +164,7 @@ export function markBankrupt(player: Player): Player {
     properties: [],
     inJail: false,
     jailTurns: 0,
-    getOutOfJailFreeCards: 0,
+    getOutOfJailFreeCards: [],
   }
 }
 

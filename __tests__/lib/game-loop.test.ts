@@ -99,22 +99,33 @@ describe("game engine (reducer)", () => {
 
       gameLoop.dispatch({ type: "ROLL_DICE" })
       let state = gameLoop.getState()
-      expect(state.players[0].getOutOfJailFreeCards).toBe(1)
+      expect(state.players[0].getOutOfJailFreeCards).toEqual(["chance"])
+      expect(state.chanceDeck.cards.map((card) => card.id)).not.toContain(11)
     })
 
     it("releases the player and decrements the card count on USE_JAIL_CARD", () => {
-      const jailed = { ...createPlayer(0, "P0", 0), inJail: true, jailTurns: 1, getOutOfJailFreeCards: 1 }
-      const state = baseState({ players: [jailed], currentPlayerIndex: 0 })
+      const jailed = {
+        ...createPlayer(0, "P0", 0),
+        inJail: true,
+        jailTurns: 1,
+        getOutOfJailFreeCards: ["chance" as const],
+      }
+      const state = baseState({
+        players: [jailed],
+        currentPlayerIndex: 0,
+        chanceDeck: createDeckFromIds(CHANCE_CARDS, [7]),
+      })
 
       const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
 
       expect(next.players[0].inJail).toBe(false)
       expect(next.players[0].jailTurns).toBe(0)
-      expect(next.players[0].getOutOfJailFreeCards).toBe(0)
+      expect(next.players[0].getOutOfJailFreeCards).toEqual([])
+      expect(next.chanceDeck.cards.map((card) => card.id)).toEqual([7, 11])
     })
 
     it("is a no-op when the player has no card", () => {
-      const jailed = { ...createPlayer(0, "P0", 0), inJail: true, getOutOfJailFreeCards: 0 }
+      const jailed = { ...createPlayer(0, "P0", 0), inJail: true, getOutOfJailFreeCards: [] }
       const state = baseState({ players: [jailed], currentPlayerIndex: 0 })
 
       const next = gameReducer(state, { type: "USE_JAIL_CARD" }, deps())
