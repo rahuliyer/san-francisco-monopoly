@@ -12,6 +12,7 @@ export type CardEffect =
   | { type: "pay-to-players"; amount: number }
   | { type: "repairs"; houseAmount: number; hotelAmount: number }
   | { type: "go-back"; spaces: number }
+  | { type: "get-out-of-jail-free" }
 
 /** Game card definition */
 export interface GameCard {
@@ -44,7 +45,7 @@ export const CHANCE_CARDS: readonly GameCard[] = [
   { id: 8, text: "Your AI startup got acquired by a tech giant! Collect $150.", effect: { type: "collect", amount: 150 } },
   { id: 9, text: "Caught stealing sourdough starter. Go directly to Alcatraz!", effect: { type: "go-to-jail" } },
   { id: 10, text: "Earthquake retrofit required on all properties: Pay $25 per house, $100 per hotel.", effect: { type: "repairs", houseAmount: 25, hotelAmount: 100 } },
-  { id: 11, text: "SFMTA parking ticket on your Painted Lady. Pay $15.", effect: { type: "pay", amount: 15 } },
+  { id: 11, text: "A friend on the Board of Supervisors pulls some strings. Get Out of Alcatraz Free \u2014 keep this card.", effect: { type: "get-out-of-jail-free" } },
   { id: 12, text: "Uber surge pricing! Walk back 3 spaces instead.", effect: { type: "go-back", spaces: 3 } },
   { id: 13, text: "Completed the Bay to Breakers race! Collect $100.", effect: { type: "collect", amount: 100 } },
   { id: 14, text: "Your Tartine croissant recipe went viral on TikTok! Collect $200.", effect: { type: "collect", amount: 200 } },
@@ -69,7 +70,7 @@ export const COMMUNITY_CHEST_CARDS: readonly GameCard[] = [
   { id: 13, text: "Victorian home maintenance on your Painted Ladies: Pay $40 per house, $115 per hotel.", effect: { type: "repairs", houseAmount: 40, hotelAmount: 115 } },
   { id: 14, text: "Won second place in the Boudin sourdough bake-off. Collect $10.", effect: { type: "collect", amount: 10 } },
   { id: 15, text: "Inherited a rent-controlled apartment in the Mission! Collect $100.", effect: { type: "collect", amount: 100 } },
-  { id: 16, text: "Lost your Clipper card. Buy a new MUNI pass: Pay $50.", effect: { type: "pay", amount: 50 } },
+  { id: 16, text: "The Alcatraz tour guide vouches for you. Get Out of Alcatraz Free \u2014 keep this card.", effect: { type: "get-out-of-jail-free" } },
 ] as const
 
 /**

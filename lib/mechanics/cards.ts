@@ -87,6 +87,10 @@ export function applyCardEffect(
       updatedPlayers[playerIndex].position =
         (updatedPlayers[playerIndex].position - card.effect.spaces + BOARD_SIZE) % BOARD_SIZE
       break
+    case "get-out-of-jail-free":
+      updatedPlayers[playerIndex].getOutOfJailFreeCards =
+        (updatedPlayers[playerIndex].getOutOfJailFreeCards ?? 0) + 1
+      break
     case "collect-from-players": {
       const collectAmount = card.effect.amount * (players.length - 1)
       updatedPlayers[playerIndex].money += collectAmount

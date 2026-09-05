@@ -25,6 +25,8 @@ export interface DeterministicGameConfig {
     inJail?: boolean
     /** Number of turns already spent in jail */
     jailTurns?: number
+    /** Number of held "Get Out of Jail Free" cards */
+    getOutOfJailFreeCards?: number
   }>
 
   /** Sequence of dice rolls (consumed in order) */
@@ -90,6 +92,7 @@ export function createDeterministicGame(
       position: setup.initialPosition ?? 0,
       inJail: setup.inJail ?? false,
       jailTurns: setup.jailTurns ?? 0,
+      getOutOfJailFreeCards: setup.getOutOfJailFreeCards ?? 0,
     }
   })
 

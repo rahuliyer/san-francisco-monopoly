@@ -34,6 +34,7 @@ export type GameAction =
 
   // Jail actions
   | { type: "PAY_JAIL_FEE" }
+  | { type: "USE_JAIL_CARD" }
 
   // Trading actions
   | { type: "PROPOSE_TRADE"; trade: TradePayload }
@@ -104,6 +105,7 @@ export const actions = {
 
   // Jail actions
   payJailFee: (): GameAction => ({ type: "PAY_JAIL_FEE" }),
+  useJailCard: (): GameAction => ({ type: "USE_JAIL_CARD" }),
 
   // Trading actions
   proposeTrade: (trade: TradePayload): GameAction => ({

@@ -32,6 +32,8 @@ export interface Player {
   readonly inJail: boolean
   readonly jailTurns: number
   readonly isBankrupt: boolean
+  /** Number of held "Get Out of Jail Free" cards. Optional for backward compatibility (treated as 0). */
+  readonly getOutOfJailFreeCards?: number
 }
 
 /** Configuration for creating a new player */
@@ -62,6 +64,7 @@ export function createPlayer(
     inJail: false,
     jailTurns: 0,
     isBankrupt: false,
+    getOutOfJailFreeCards: 0,
   }
 }
 
@@ -160,6 +163,7 @@ export function markBankrupt(player: Player): Player {
     properties: [],
     inJail: false,
     jailTurns: 0,
+    getOutOfJailFreeCards: 0,
   }
 }
 

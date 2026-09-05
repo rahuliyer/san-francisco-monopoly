@@ -188,6 +188,18 @@ export default function MonopolyGame() {
     addLog(`${currentPlayer.name} paid $${JAIL_FEE} to leave Alcatraz`)
   }, [gameState.players, gameState.currentPlayerIndex, addLog])
 
+  const handleUseJailCard = useCallback(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    if (
+      !currentPlayer ||
+      !currentPlayer.inJail ||
+      (currentPlayer.getOutOfJailFreeCards ?? 0) <= 0
+    ) {
+      return
+    }
+    dispatch(gameActions.useJailCard())
+  }, [gameState.players, gameState.currentPlayerIndex, dispatch])
+
   const handleOpenTrade = useCallback(() => {
     setIsTradeOpen(true)
   }, [])
@@ -1385,6 +1397,8 @@ export default function MonopolyGame() {
           jailTurns={currentPlayer.jailTurns}
           onPayJailFee={handlePayJailFee}
           canAffordJailFee={currentPlayer.money >= JAIL_FEE}
+          jailFreeCards={currentPlayer.getOutOfJailFreeCards ?? 0}
+          onUseJailCard={handleUseJailCard}
           onTrade={handleOpenTrade}
           tradeDisabled={tradeDisabled}
           gameOver={gameState.gameOver}
